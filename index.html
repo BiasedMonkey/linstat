@@ -6,12 +6,12 @@
 <title>LinStat</title>
 <style>
 :root {
-  --bg: #1c1d20; --panel: #26282c; --row: #2e3035; --fg: #e8e8ea; --muted: #9b9da4;
-  --line: #3a3c42; --accent: #5b9dff; --bar: #4a7fd6;
-}
-@media (prefers-color-scheme: light) {
-  :root { --bg: #eef0f3; --panel: #fff; --row: #f2f4f7; --fg: #1d1e21; --muted: #676a71;
-          --line: #d9dce1; --accent: #2f6fde; --bar: #7aa7ee; }
+  /* Thème « Aurore » ; les autres thèmes remplacent ces valeurs (voir THEMES) */
+  --bg: #1b1633; --panel: #251e45; --row: #30285a; --fg: #f4effe; --muted: #b4aad8;
+  --line: #3d336b; --accent: #ff6fa8; --accent2: #ffb547; --on-accent: #fff;
+  --head: linear-gradient(90deg, #33215f, #4a2160 55%, #5a2346);
+  --bar: linear-gradient(90deg, var(--accent), var(--accent2));
+  color-scheme: dark;
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg);
@@ -21,8 +21,10 @@ main { min-height: 0; }
 #mapview { display: grid; grid-template-rows: var(--top, 42%) 6px auto 1fr; }
 #mapview[hidden], #catview[hidden] { display: none; }
 header { display: flex; gap: 10px; align-items: center; padding: 8px 12px;
-  background: var(--panel); border-bottom: 1px solid var(--line); min-width: 0; }
-header h1 { font-size: 15px; margin: 0; white-space: nowrap; }
+  background: var(--head); border-bottom: 1px solid var(--line); min-width: 0; }
+header h1, #picker h2 { background: var(--bar); -webkit-background-clip: text; background-clip: text;
+  color: transparent; }
+header h1 { font-size: 16px; margin: 0; white-space: nowrap; font-weight: 800; }
 header .info { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
 button { font: inherit; color: var(--fg); background: var(--row); border: 1px solid var(--line);
   border-radius: 6px; padding: 4px 10px; cursor: pointer; white-space: nowrap; }
@@ -88,14 +90,14 @@ footer { padding: 4px 12px; background: var(--panel); border-top: 1px solid var(
 .custom { display: flex; gap: 8px; margin-top: 14px; }
 .custom input { flex: 1; min-width: 0; font: inherit; color: var(--fg); background: var(--bg);
   border: 1px solid var(--line); border-radius: 6px; padding: 5px 8px; }
-button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+button.primary { background: var(--bar); border-color: transparent; color: var(--on-accent); font-weight: 600; }
 button.danger:not(:disabled) { color: #ff7070; border-color: #ff707066; }
 button.primary.danger { background: #d93b3b; border-color: #d93b3b; color: #fff; }
 
 /* Bascule de vue */
 .seg { display: flex; border: 1px solid var(--line); border-radius: 7px; overflow: hidden; flex: none; }
 .seg button { border: 0; border-radius: 0; background: none; color: var(--muted); }
-.seg button.on { background: var(--accent); color: #fff; }
+.seg button.on { background: var(--bar); color: var(--on-accent); font-weight: 600; }
 
 /* Barre d'actions */
 #actions { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 6px 12px;
@@ -107,9 +109,20 @@ button.primary.danger { background: #d93b3b; border-color: #d93b3b; color: #fff;
 #catstack { display: flex; height: 14px; border-radius: 4px; overflow: hidden; flex: none; }
 #catstack i { display: block; height: 100%; }
 #cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; flex: none; }
-.card { text-align: left; padding: 10px 12px; border-radius: 10px; background: var(--panel);
+.card { text-align: left; padding: 10px 12px; border-radius: 10px; background: color-mix(in srgb, var(--c) 13%, var(--panel));
   border: 1px solid var(--line); border-top: 4px solid var(--c); display: grid; gap: 2px; white-space: normal; }
-.card.on { outline: 2px solid var(--accent); outline-offset: 1px; }
+.card.on { outline: 2px solid var(--accent); outline-offset: 1px; background: color-mix(in srgb, var(--c) 24%, var(--panel)); }
+#bTheme { font-size: 15px; padding: 2px 9px; }
+#themes { position: fixed; z-index: 20; background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+  padding: 6px; box-shadow: 0 10px 34px #0007; display: grid; gap: 4px; width: 250px; }
+#themes[hidden] { display: none; }
+#themes button { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 8px; text-align: left;
+  border: 1px solid transparent; background: none; padding: 7px 9px; border-radius: 8px; }
+#themes button:hover { background: var(--row); }
+#themes button.on { border-color: var(--accent); }
+#themes .sw4 { display: flex; height: 18px; width: 92px; border-radius: 5px; overflow: hidden;
+  box-shadow: 0 0 0 1px #0002; }
+#themes .sw4 i { flex: 1; }
 .card b { font-size: 14px; }
 .card .big { font-size: 20px; font-weight: 600; }
 .card .dim { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -159,9 +172,11 @@ button.primary.danger { background: #d93b3b; border-color: #d93b3b; color: #fff;
     <button data-view="cat">Catégories</button>
   </div>
   <span class="info" id="info">…</span>
+  <button id="bTheme" title="Thème de couleurs">🎨</button>
   <button id="bChange">Changer de dossier</button>
   <button id="bRescan" disabled>Réanalyser</button>
 </header>
+<div id="themes" hidden></div>
 <div id="actions">
   <span id="selInfo" class="dim"></span>
   <button data-op="open">Ouvrir</button>
@@ -252,7 +267,7 @@ const pct = (a, b) => b ? (100 * a / b).toFixed(1) + " %" : "–";
 let root, viewRoot, selected = null, hovered = null, gen = 0;
 let hi = null;            // surlignage : { kind: "cat" | "e", value }
 let colorMode = "cat";    // la carte est colorée selon l'onglet de droite
-let extColor = new Map(), extList = [], catList = [], catColor = {}, catByExt = {};
+let extColor = new Map(), extList = [], catList = [], catColor = {}, catByExt = {}, rawCatColor = {};
 let catFiles = {}, scanInfo = null, curCat = null;
 let targets = [];             // éléments sur lesquels portent les actions : { path, name, size, node?, cat? }
 const checked = new Map();    // vue Catégories : chemin -> cible cochée
@@ -263,6 +278,7 @@ const post = (url, body) => fetch(url, { method: "POST",
 
 async function start() {
   const params = new URLSearchParams(location.search);
+  try { applyTheme(params.get("theme") || (await (await fetch("/api/config")).json()).theme); } catch {}
   // Dossier demandé au lancement (ligne de commande, action du menu KDE)
   const asked = params.get("scan");
   if (asked) history.replaceState(null, "", "/");  // un rechargement ne relance pas l'analyse
@@ -326,9 +342,9 @@ $("#bChange").onclick = showPicker;
 function apply(data) {
   root = viewRoot = data.tree; selected = hovered = hi = null;
   extList = data.exts.map(([e, s, n]) => ({ e, s, n }));
-  extColor = new Map(extList.slice(0, PALETTE.length).map((e, i) => [e.e, PALETTE[i]]));
   catList = data.cats.map(([c, s, n, top]) => ({ c, s, n, top }));
-  catColor = data.catColors; catByExt = data.catByExt; catFiles = data.catFiles;
+  rawCatColor = data.catColors; catByExt = data.catByExt; catFiles = data.catFiles;
+  recolor();
   scanInfo = data;
   prepare(root, null, null);
   root.o = true;
@@ -1046,6 +1062,73 @@ addEventListener("keydown", ev => {
   if (!root || !$("#modal").hidden || ev.target.tagName === "INPUT" && ev.target.type !== "checkbox") return;
   if (ev.key === "Delete") { ev.preventDefault(); runOp(ev.shiftKey ? "delete" : "trash"); }
   else if (ev.key === "F2") { ev.preventDefault(); runOp("rename"); }
+});
+
+// ---------- Thèmes ----------
+// ton : [couleur, part] mélange les couleurs de la carte vers cette couleur (pastel, etc.)
+const THEMES = {
+  aurore: { nom: "Aurore", sombre: true, bg: "#1b1633", panel: "#251e45", row: "#30285a", fg: "#f4effe",
+    muted: "#b4aad8", line: "#3d336b", accent: "#ff6fa8", accent2: "#ffb547",
+    head: "linear-gradient(90deg, #33215f, #4a2160 55%, #5a2346)" },
+  lagon: { nom: "Lagon", sombre: true, bg: "#0e2230", panel: "#143043", row: "#1b3d53", fg: "#eafcff",
+    muted: "#9cc7d3", line: "#244b60", accent: "#2ee6c9", accent2: "#4da3ff", onAccent: "#062a2c",
+    head: "linear-gradient(90deg, #0f3b4f, #14506a 60%, #155a5a)" },
+  foret: { nom: "Forêt", sombre: true, bg: "#13201a", panel: "#1a2c23", row: "#22392d", fg: "#eef8ef",
+    muted: "#a5c4ad", line: "#2c4838", accent: "#8bd450", accent2: "#f2c94c", onAccent: "#15240f",
+    head: "linear-gradient(90deg, #1d3a2a, #2a4a26 60%, #3d4a20)" },
+  agrumes: { nom: "Agrumes", sombre: false, bg: "#fff7ec", panel: "#ffffff", row: "#fff0dc", fg: "#2e2218",
+    muted: "#8c7461", line: "#f2dfc6", accent: "#ff7a2f", accent2: "#ffc233",
+    head: "linear-gradient(90deg, #ffe2c4, #ffefc2 60%, #fff6d6)" },
+  bonbon: { nom: "Bonbon", sombre: false, bg: "#fbf6ff", panel: "#ffffff", row: "#f4eaff", fg: "#2d2442",
+    muted: "#8a7ba8", line: "#eadcf7", accent: "#a965ff", accent2: "#ff7eb6",
+    head: "linear-gradient(90deg, #efe0ff, #ffe0ef 60%, #e0f2ff)", ton: [[255, 255, 255], 0.25] },
+  sobre: { nom: "Sobre", sombre: true, bg: "#1c1d20", panel: "#26282c", row: "#2e3035", fg: "#e8e8ea",
+    muted: "#9b9da4", line: "#3a3c42", accent: "#5b9dff", accent2: "#5b9dff", head: "#26282c" },
+  clair: { nom: "Clair", sombre: false, bg: "#eef0f3", panel: "#ffffff", row: "#f2f4f7", fg: "#1d1e21",
+    muted: "#676a71", line: "#d9dce1", accent: "#2f6fde", accent2: "#2f6fde", head: "#ffffff" },
+};
+const DEFAULT_THEME = "aurore";
+let themeId = DEFAULT_THEME, theme = THEMES[DEFAULT_THEME];
+
+const tone = c => !theme.ton ? c : c.map((v, i) => Math.round(v + (theme.ton[0][i] - v) * theme.ton[1]));
+function recolor() {
+  catColor = Object.fromEntries(Object.entries(rawCatColor).map(([k, c]) => [k, tone(c)]));
+  extColor = new Map(extList.slice(0, PALETTE.length).map((e, i) => [e.e, tone(PALETTE[i])]));
+}
+
+function applyTheme(id) {
+  themeId = id in THEMES ? id : DEFAULT_THEME;
+  theme = THEMES[themeId];
+  const st = document.documentElement.style;
+  for (const k of ["bg", "panel", "row", "fg", "muted", "line", "accent", "accent2", "head"]) st.setProperty("--" + k, theme[k]);
+  st.setProperty("--on-accent", theme.onAccent || "#fff");
+  st.colorScheme = theme.sombre ? "dark" : "light";
+  if (root) { recolor(); refreshAll(); }
+}
+
+function showThemes() {
+  const box = $("#themes");
+  const cats = Object.values(rawCatColor).length ? Object.values(rawCatColor).slice(0, 3) : [[171, 71, 188], [66, 133, 244], [52, 168, 83]];
+  box.innerHTML = Object.entries(THEMES).map(([id, t]) => {
+    const swatches = [t.bg, t.accent, t.accent2, ...cats.map(c => `rgb(${t.ton ? c.map((v, i) => v + (t.ton[0][i] - v) * t.ton[1]) : c})`)];
+    return `<button data-theme="${id}" class="${id === themeId ? "on" : ""}">
+      <span>${t.nom}${id === DEFAULT_THEME ? ' <span class="dim">· par défaut</span>' : ""}</span>
+      <span class="sw4">${swatches.map(c => `<i style="background:${c}"></i>`).join("")}</span></button>`;
+  }).join("");
+  box.hidden = false;
+  const r = $("#bTheme").getBoundingClientRect();
+  box.style.top = r.bottom + 6 + "px";
+  box.style.left = Math.max(8, Math.min(r.left, innerWidth - box.offsetWidth - 8)) + "px";
+}
+$("#bTheme").onclick = ev => { ev.stopPropagation(); $("#themes").hidden ? showThemes() : ($("#themes").hidden = true); };
+$("#themes").addEventListener("click", ev => {
+  const b = ev.target.closest("[data-theme]"); if (!b) return;
+  applyTheme(b.dataset.theme);
+  post("/api/config", { theme: themeId });  // retenu pour les prochains lancements
+  showThemes();
+});
+addEventListener("mousedown", ev => {
+  if (!ev.target.closest("#themes, #bTheme")) $("#themes").hidden = true;
 });
 
 start();

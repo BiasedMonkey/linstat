@@ -27,6 +27,17 @@ et faire le ménage dans la foulée.
   copier le chemin, renommer (F2), déplacer, **mettre à la corbeille** (Suppr) ou supprimer
   définitivement (Maj+Suppr). La carte et les totaux se mettent à jour sans réanalyse.
 
+## Thèmes
+
+Sept thèmes au choix avec le bouton 🎨, retenus d'un lancement à l'autre
+(`~/.config/linstat/config.json`) : **Aurore** (par défaut), **Lagon**, **Forêt**, **Agrumes**
+et **Bonbon** (clairs), et les plus sobres **Sobre** et **Clair**. Bonbon adoucit aussi les
+couleurs de la carte en pastel.
+
+<p align="center">
+  <img src="captures/themes.png" alt="Les thèmes Aurore, Lagon, Forêt, Agrumes, Bonbon et Sobre" width="900">
+</p>
+
 ## Rapide
 
 Dossier personnel de 2,4 millions de fichiers analysé en environ 3,5 s, disque entier de
@@ -95,3 +106,8 @@ python3 tests/verifier.py
 Teste dans un dossier temporaire : totaux exacts face à une référence simple (liens
 physiques, arborescence de 1 200 niveaux), règles de catégories, et toutes les opérations
 sur les fichiers, y compris ce qui doit être refusé.
+
+## Outils
+
+- `outils/captures.sh` : régénère les captures du README sur un dossier de démonstration
+  créé en mémoire dans `/tmp` (nécessite ffmpeg, Chromium et python-pillow).

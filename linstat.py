@@ -642,6 +642,31 @@ def thumbnail(path):
     return data, ctype
 
 
+# ---------- Préférences ----------
+CONFIG = Path(os.environ.get("XDG_CONFIG_HOME") or os.path.expanduser("~/.config")) / "linstat" / "config.json"
+
+
+def load_config():
+    try:
+        cfg = json.loads(CONFIG.read_text())
+        return cfg if isinstance(cfg, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def save_config(changes):
+    """Seules des clés connues, aux valeurs vérifiées, sont enregistrées."""
+    theme = changes.get("theme")
+    if not (isinstance(theme, str) and re.fullmatch(r"[a-z]{1,20}", theme)):
+        raise ValueError("thème invalide")
+    cfg = load_config()
+    cfg["theme"] = theme
+    CONFIG.parent.mkdir(parents=True, exist_ok=True)
+    tmp = CONFIG.with_suffix(".tmp")
+    tmp.write_text(json.dumps(cfg, indent=2))
+    tmp.replace(CONFIG)  # remplacement atomique : jamais de fichier à moitié écrit
+
+
 class State:
     def __init__(self, one_fs):
         self.one_fs = one_fs
@@ -710,6 +735,8 @@ def make_handler(state):
                 self._send(200, {"files": sc.files if sc else 0, "size": sc.total if sc else 0})
             elif path == "/api/places":
                 self._send(200, places())
+            elif path == "/api/config":
+                self._send(200, load_config())
             elif path == "/api/thumb" and state.root:
                 p = os.path.normpath(parse_qs(url.query).get("path", [""])[0])
                 try:
@@ -738,6 +765,12 @@ def make_handler(state):
                 except Exception as e:
                     return self._send(500, f"{type(e).__name__} : {e}")
                 self._send(200, state.payload, gz=True)
+            elif self.path == "/api/config":
+                try:
+                    save_config(body)
+                except ValueError as e:
+                    return self._send(400, str(e))
+                self._send(204, b"")
             elif self.path == "/api/pick":
                 self._send(200, {"path": pick_directory(body.get("title") or "Dossier à analyser",
                                                         body.get("start"))})
