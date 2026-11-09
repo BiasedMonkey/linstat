@@ -31,6 +31,11 @@ et faire le ménage dans la foulée.
   - **Supprimer les copies en trop** : un exemplaire gardé par fichier (le plus ancien, le plus
     récent…), les autres à la corbeille après vérification. Impossible de retirer le dernier
     exemplaire d'un fichier.
+
+  Les doublons sont rangés par famille (photos/vidéos/musique, documents, modèles IA, autres,
+  jeux/logiciels/système) et on peut **cocher plusieurs cas** pour les traiter d'un coup. Les
+  fichiers de jeux, de logiciels et du système sont **verrouillés** : jamais proposés à la
+  suppression, seulement au « stocker une fois ».
 - **Gestion des fichiers** (barre d'actions ou clic droit) : ouvrir, afficher dans Dolphin,
   copier le chemin, renommer (F2), déplacer, **mettre à la corbeille** (Suppr) ou supprimer
   définitivement (Maj+Suppr). La carte et les totaux se mettent à jour sans réanalyse.
