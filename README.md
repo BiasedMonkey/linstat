@@ -27,6 +27,10 @@ et faire le ménage dans la foulée.
   récupérable. Un clic pour ne garder que le plus ancien, le plus récent ou celui au chemin
   le plus court ; LinStat **avertit si une action effaçait toutes les copies** d'un fichier.
   Par défaut, les jeux, programmes, code et caches sont ignorés (leurs copies internes sont normales).
+- **Partage des blocs, sans rien supprimer** (btrfs, XFS) : les copies restent toutes à leur place
+  mais n'occupent la place qu'une fois ; modifier l'une ne touche pas les autres. LinStat repère
+  les groupes déjà partagés (par exemple par `cp`, qui le fait tout seul sur btrfs) et affiche
+  le gain réellement mesuré sur le disque.
 - **Gestion des fichiers** (barre d'actions ou clic droit) : ouvrir, afficher dans Dolphin,
   copier le chemin, renommer (F2), déplacer, **mettre à la corbeille** (Suppr) ou supprimer
   définitivement (Maj+Suppr). La carte et les totaux se mettent à jour sans réanalyse.
@@ -60,6 +64,11 @@ Trois tamis, du moins cher au plus cher : même taille exacte (gratuit, l'analys
 déjà), puis même empreinte des 64 premiers et 64 derniers Ko, puis même empreinte BLAKE2 du
 fichier entier pour les seuls survivants. Les liens physiques ne sont jamais pris pour des
 doublons : c'est le même fichier sous deux noms, en supprimer un ne libère rien.
+
+Le partage passe par l'appel noyau `FIDEDUPERANGE`, celui de `duperemove` : le noyau compare
+lui-même les deux fichiers octet par octet, sous verrou, et ne partage que s'ils sont identiques.
+Un fichier modifié entre l'analyse et le clic n'est donc jamais touché. Des instantanés btrfs
+(snapshots) peuvent réduire le gain, puisqu'ils gardent les anciens blocs.
 
 ## Catégories
 

@@ -156,8 +156,42 @@ def doublons(t):
     verifie(not any("petit" in f[0] for g in tout for f in g["files"]), "les petits fichiers sont ignorés")
 
 
+def partage(t):
+    print("Partage des blocs (déduplication sans perte)")
+    if not linstat.can_share(t):
+        print("  ignoré : ce système de fichiers ne sait pas partager de blocs (btrfs ou XFS requis)")
+        return
+    data = os.urandom(20 << 20)  # 20 Mio : plusieurs appels de 16 Mio
+    for p in ("a.bin", "b.bin"):
+        with open(f"{t}/{p}", "wb") as f:
+            f.write(data)
+    with open(f"{t}/c.bin", "wb") as f:
+        f.write(data[:-1] + b"!")  # même taille, dernier octet différent
+    os.utime(f"{t}/b.bin", (1_600_000_000, 1_600_000_000))
+    a, b = f"{t}/a.bin", f"{t}/b.bin"
+    verifie(not linstat.already_shared([a, b]), "deux copies fraîches ne partagent rien")
+    n = linstat.share_blocks(a, b, len(data))
+    verifie(n == len(data), f"{n} octets partagés sur {len(data)}")
+    verifie(linstat.already_shared([a, b]), "les deux fichiers partagent maintenant leurs blocs")
+    with open(b, "rb") as f:
+        verifie(f.read() == data, "le contenu de la copie est intact")
+    verifie(os.stat(b).st_mtime == 1_600_000_000, "la date de la copie est inchangée")
+    with open(b, "r+b") as f:  # copie à l'écriture : modifier l'un ne touche pas l'autre
+        f.write(b"XYZ")
+    with open(a, "rb") as f:
+        verifie(f.read() == data, "modifier une copie partagée laisse l'autre intacte")
+    try:
+        linstat.share_blocks(a, f"{t}/c.bin", len(data))
+        verifie(False, "refus : contenus différents")
+    except ValueError:
+        verifie(True, "refus : contenus différents (vérifié par le noyau)")
+
+
 def main():
     sys.setrecursionlimit(10_000)
+    # sur le disque du projet : /tmp est souvent en mémoire (tmpfs), sans partage de blocs
+    with tempfile.TemporaryDirectory(dir=os.path.dirname(os.path.abspath(__file__))) as t:
+        partage(t)
     with tempfile.TemporaryDirectory() as t:
         doublons(t)
     with tempfile.TemporaryDirectory() as t:

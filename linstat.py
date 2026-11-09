@@ -8,6 +8,7 @@ ou à défaut dans le navigateur.
     python3 linstat.py [dossier] [--browser]
 """
 import argparse
+import fcntl
 import gzip
 import hashlib
 import heapq
@@ -18,6 +19,7 @@ import multiprocessing
 import os
 import re
 import shutil
+import struct
 import subprocess
 import sys
 import threading
@@ -739,8 +741,81 @@ def find_duplicates(cands, min_size, skip, progress):
         small = [g for g in groups if g[0][0] <= 2 * EDGE]  # déjà lus en entier
         groups = small + refine([g for g in groups if g[0][0] > 2 * EDGE], False, "vérification complète", pool)
     groups.sort(key=lambda g: g[0][0] * (len(g) - 1), reverse=True)
-    return [{"size": g[0][0], "files": [[p, m, c] for _, p, c, m in sorted(g, key=lambda f: f[3])]}
-            for g in groups]
+    out = [{"size": g[0][0], "files": [[p, m, c] for _, p, c, m in sorted(g, key=lambda f: f[3])]}
+           for g in groups]
+    for g in out[:3000]:
+        g["shared"] = already_shared([f[0] for f in g["files"]])
+    return out
+
+
+# ---------- Partage des blocs (déduplication sans perte) ----------
+# Sur btrfs (ou XFS avec reflink), des fichiers identiques peuvent partager les mêmes blocs :
+# chacun reste un fichier indépendant (une modification n'affecte que lui, copie à l'écriture),
+# mais la place n'est occupée qu'une fois.
+REFLINK_FS = {"btrfs", "xfs"}
+FIDEDUPERANGE = 0xC0189436  # _IOWR(0x94, 54, struct file_dedupe_range)
+FS_IOC_FIEMAP = 0xC020660B  # _IOWR('f', 11, struct fiemap)
+DEDUPE_CHUNK = 16 << 20     # btrfs traite au plus 16 Mio par appel
+
+
+def can_share(root):
+    """Le système de fichiers du dossier analysé sait-il partager des blocs ?"""
+    mounts = [m for m in read_mounts() if within(root, m[0])]
+    return bool(mounts) and max(mounts, key=lambda m: len(m[0]))[2] in REFLINK_FS
+
+
+def first_extent(path):
+    """Adresse physique du premier bloc du fichier (FIEMAP), ou None."""
+    # struct fiemap (32 octets) suivie d'une struct fiemap_extent (56 octets)
+    buf = bytearray(struct.pack("=QQIIII", 0, 2**64 - 1, 1, 0, 1, 0) + bytes(56))  # 1 = FIEMAP_FLAG_SYNC
+    with open(path, "rb") as f:
+        fcntl.ioctl(f.fileno(), FS_IOC_FIEMAP, buf, True)
+    if not struct.unpack_from("=I", buf, 20)[0]:  # fm_mapped_extents
+        return None
+    return struct.unpack_from("=Q", buf, 40)[0]   # fe_physical
+
+
+def already_shared(paths):
+    try:
+        firsts = {first_extent(p) for p in paths}
+    except OSError:
+        return False
+    return len(firsts) == 1 and None not in firsts
+
+
+def _share(src, dst, size, mode, progress):
+    with open(src, "rb") as fs:
+        fd = os.open(dst, mode)
+        try:
+            off = 0
+            while off < size:
+                n = min(DEDUPE_CHUNK, size - off)
+                # struct file_dedupe_range (24 octets) + une struct file_dedupe_range_info (32 octets)
+                arg = bytearray(struct.pack("=QQHHI", off, n, 1, 0, 0) + struct.pack("=qQQiI", fd, off, 0, 0, 0))
+                fcntl.ioctl(fs.fileno(), FIDEDUPERANGE, arg, True)
+                _, _, done, status, _ = struct.unpack_from("=qQQiI", arg, 24)
+                if status == 1:  # FILE_DEDUPE_RANGE_DIFFERS
+                    raise ValueError("le contenu a changé depuis l'analyse : rien n'a été touché")
+                if status < 0:
+                    raise OSError(-status, os.strerror(-status))
+                if not done:
+                    raise OSError("le système de fichiers n'a rien partagé")
+                off += done
+                if progress is not None:
+                    progress["done"] += done
+            return off
+        finally:
+            os.close(fd)
+
+
+def share_blocks(src, dst, size, progress=None):
+    """Fait partager à dst les blocs de src. Le noyau compare lui-même les deux fichiers,
+    octet par octet et sous verrou, et refuse s'ils diffèrent : aucune donnée ne peut être perdue,
+    même si un fichier a changé depuis l'analyse. Renvoie le nombre d'octets partagés."""
+    try:
+        return _share(src, dst, size, os.O_RDONLY, progress)  # suffit au propriétaire du fichier
+    except PermissionError:
+        return _share(src, dst, size, os.O_RDWR, progress)
 
 
 class State:
@@ -753,13 +828,48 @@ class State:
         self.dirty = False  # une opération a modifié le disque depuis l'analyse
         self.dup_lock = threading.Lock()
         self.dup_progress = {}
+        self.share_progress = {}
+
+    def share(self, groups):
+        """Partage les blocs de chaque groupe ; renvoie un résultat par fichier et le gain mesuré."""
+        with self.dup_lock:
+            items = []
+            for paths in groups:
+                try:
+                    ps = [checked_target(p, self.root) for p in paths]
+                    if any(os.path.islink(p) or not os.path.isfile(p) for p in ps):
+                        raise ValueError("pas un fichier ordinaire")
+                    size = os.path.getsize(ps[0])
+                    if len(ps) < 2 or any(os.path.getsize(p) != size for p in ps):
+                        raise ValueError("tailles différentes depuis l'analyse")
+                    items.append((ps, size, None))
+                except (OSError, ValueError) as e:
+                    items.append((paths, 0, str(e)))
+            self.share_progress.update(done=0, total=sum(s * (len(ps) - 1) for ps, s, err in items if not err))
+            st = os.statvfs(self.root)
+            free_before = st.f_bavail * st.f_frsize
+            results = []
+            for ps, size, err in items:
+                if err:
+                    results += [{"path": p, "ok": False, "error": err} for p in ps[1:]]
+                    continue
+                for dst in ps[1:]:  # le premier (le plus ancien) sert de modèle
+                    try:
+                        results.append({"path": dst, "ok": True, "bytes": share_blocks(ps[0], dst, size, self.share_progress)})
+                    except (OSError, ValueError) as e:
+                        results.append({"path": dst, "ok": False,
+                                        "error": e.strerror if isinstance(e, OSError) and e.strerror else str(e)})
+            os.sync()  # btrfs ne libère les blocs qu'à la validation de la transaction
+            time.sleep(1)
+            st = os.statvfs(self.root)
+            return {"results": results, "freed": st.f_bavail * st.f_frsize - free_before}
 
     def duplicates(self, min_size, skip):
         with self.dup_lock:
             t0 = time.time()
             groups = find_duplicates(self.scanner.dupc, min_size, DUP_SKIP if skip else set(), self.dup_progress)
             waste = sum(g["size"] * (len(g["files"]) - 1) for g in groups)
-            data = {"groups": groups[:3000], "count": len(groups), "waste": waste,
+            data = {"groups": groups[:3000], "count": len(groups), "waste": waste, "canShare": can_share(self.root),
                     "seconds": round(time.time() - t0, 1)}
             return gzip.compress(json.dumps(data, separators=(",", ":")).encode(), compresslevel=5)
 
@@ -819,6 +929,8 @@ def make_handler(state):
                 self._send(200, state.payload, gz=True)
             elif path == "/api/dupprogress":
                 self._send(200, state.dup_progress)
+            elif path == "/api/shareprogress":
+                self._send(200, state.share_progress)
             elif path == "/api/progress":
                 sc = state.scanner
                 self._send(200, {"files": sc.files if sc else 0, "size": sc.total if sc else 0})
@@ -863,6 +975,12 @@ def make_handler(state):
             elif self.path == "/api/pick":
                 self._send(200, {"path": pick_directory(body.get("title") or "Dossier à analyser",
                                                         body.get("start"))})
+            elif self.path == "/api/share":
+                groups = body.get("groups")
+                if (not state.root or not isinstance(groups, list)
+                        or not all(isinstance(g, list) and all(isinstance(p, str) for p in g) for g in groups)):
+                    return self._send(400, "groupes attendus")
+                self._send(200, state.share(groups))
             elif self.path == "/api/duplicates":
                 min_size = body.get("minSize")
                 if not state.scanner or not isinstance(min_size, int) or not DUP_MIN <= min_size <= 1 << 40:
