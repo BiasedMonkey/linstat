@@ -23,14 +23,14 @@ et faire le ménage dans la foulée.
   disque, Code & dév., Caches, Corbeille… La carte se colore par catégorie ou par extension.
 - **Vue Catégories** : une carte par catégorie, puis ses 250 plus gros fichiers avec
   **miniatures** (images et vidéos) et cases à cocher pour agir sur plusieurs fichiers à la fois.
-- **Doublons** : fichiers au contenu strictement identique, regroupés et triés par place
-  récupérable. Un clic pour ne garder que le plus ancien, le plus récent ou celui au chemin
-  le plus court ; LinStat **avertit si une action effaçait toutes les copies** d'un fichier.
-  Par défaut, les jeux, programmes, code et caches sont ignorés (leurs copies internes sont normales).
-- **Partage des blocs, sans rien supprimer** (btrfs, XFS) : les copies restent toutes à leur place
-  mais n'occupent la place qu'une fois ; modifier l'une ne touche pas les autres. LinStat repère
-  les groupes déjà partagés (par exemple par `cp`, qui le fait tout seul sur btrfs) et affiche
-  le gain réellement mesuré sur le disque.
+- **Doublons** : LinStat trouve les fichiers identiques rangés à plusieurs endroits et propose
+  deux choix, côte à côte :
+  - **Tout garder, mais ne stocker qu'une fois** (btrfs, XFS ; sans risque) : chaque copie reste
+    à sa place avec son nom, mais le disque ne garde qu'un exemplaire du contenu. Idéal pour un
+    modèle IA utilisé par plusieurs logiciels.
+  - **Supprimer les copies en trop** : un exemplaire gardé par fichier (le plus ancien, le plus
+    récent…), les autres à la corbeille après vérification. Impossible de retirer le dernier
+    exemplaire d'un fichier.
 - **Gestion des fichiers** (barre d'actions ou clic droit) : ouvrir, afficher dans Dolphin,
   copier le chemin, renommer (F2), déplacer, **mettre à la corbeille** (Suppr) ou supprimer
   définitivement (Maj+Suppr). La carte et les totaux se mettent à jour sans réanalyse.

@@ -20,35 +20,61 @@ body { display: grid; grid-template-rows: auto auto 1fr auto; height: 100vh; }
 main { min-height: 0; }
 #mapview { display: grid; grid-template-rows: var(--top, 42%) 6px auto 1fr; }
 #mapview[hidden], #catview[hidden], #dupview[hidden] { display: none; }
-#dupview { overflow: auto; padding: 12px; display: flex; flex-direction: column; gap: 12px; }
-.duphead { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; background: var(--panel);
-  border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
-.duphead select { font: inherit; color: var(--fg); background: var(--row); border: 1px solid var(--line);
+#dupview { overflow: auto; padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+#dupResult { display: flex; flex-direction: column; gap: 14px; }
+#dupResult[hidden], #dupIntro[hidden], .dchoices[hidden] { display: none; }
+.dcard { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 20px 22px; }
+.dintro { max-width: 620px; margin: 30px auto 0; text-align: center; }
+.dintro h2 { margin: 0 0 8px; font-size: 22px; }
+.dintro > p { color: var(--muted); margin: 0 0 18px; font-size: 14px; line-height: 1.5; }
+.big-btn { font-size: 15px; padding: 9px 22px; border-radius: 10px; }
+.dintro details { margin-top: 16px; text-align: left; }
+.dintro summary, .dchoice summary { cursor: pointer; color: var(--muted); }
+.dintro summary { text-align: center; }
+.dopts { display: grid; gap: 10px; margin-top: 12px; }
+.dopts select, .dchoice select { font: inherit; color: var(--fg); background: var(--bg); border: 1px solid var(--line);
   border-radius: 6px; padding: 3px 6px; }
-.duphead .note { flex-basis: 100%; color: var(--muted); font-size: 12px; }
-.dupsum { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-.dupsum .big { font-size: 18px; font-weight: 700; background: var(--bar); -webkit-background-clip: text;
-  background-clip: text; color: transparent; margin-right: 8px; }
-.dgroup { background: color-mix(in srgb, var(--c) 8%, var(--panel)); border: 1px solid var(--line);
+.lead { font-size: 15px; margin: 0 0 16px; line-height: 1.5; }
+.lead .big { font-size: 26px; font-weight: 800; background: var(--bar); -webkit-background-clip: text;
+  background-clip: text; color: transparent; }
+.relaunch { background: none; border: 0; color: var(--accent); padding: 0; text-decoration: underline; margin-left: 8px; }
+.dchoices { display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 12px; }
+.dchoice { border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; display: flex;
+  flex-direction: column; gap: 8px; background: var(--row); }
+.dchoice.safe { border-color: #3ccf8e88; background: color-mix(in srgb, #3ccf8e 10%, var(--row)); }
+.dchoice h3 { margin: 0; font-size: 16px; }
+.dchoice p { margin: 0; color: var(--muted); line-height: 1.45; }
+.dchoice details p { margin-top: 6px; }
+.dchoice .tag { align-self: flex-start; font-size: 11px; font-weight: 700; padding: 1px 9px; border-radius: 999px;
+  background: #3ccf8e; color: #062a1b; }
+.dchoice .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: auto; padding-top: 4px; }
+.small { font-size: 12px; }
+.dgroup { background: color-mix(in srgb, var(--c) 7%, var(--panel)); border: 1px solid var(--line);
   border-left: 4px solid var(--c); border-radius: 10px; overflow: hidden; }
-.dghead { display: grid; grid-template-columns: 52px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 8px 12px; }
-.dghead .nm1 { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.dghead .gain { font-weight: 700; color: var(--accent); white-space: nowrap; display: flex; gap: 8px; align-items: center; }
-.dghead .gain button { font-weight: 400; }
-.badge { font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 999px; white-space: nowrap;
-  background: color-mix(in srgb, #3ccf8e 22%, var(--panel)); color: var(--fg); border: 1px solid #3ccf8e88; }
-.dgroup.shared { opacity: .75; }
-.sharebox { background: color-mix(in srgb, #3ccf8e 12%, var(--panel)); border: 1px solid #3ccf8e66; border-radius: 10px;
-  padding: 10px 12px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; flex-basis: 100%; }
-.sharebox p { margin: 0; flex: 1; min-width: 260px; }
-.drow { display: grid; grid-template-columns: 18px minmax(0, 1fr) 120px; gap: 10px; align-items: center;
-  padding: 3px 12px 3px 74px; cursor: default; }
+.dghead { display: grid; grid-template-columns: 52px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 10px 14px; }
+.dghead .nm1 { font-weight: 600; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dghead .side { display: flex; gap: 10px; align-items: center; white-space: nowrap; }
+.dghead .extra { font-weight: 700; color: var(--accent); }
+.chip { font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 999px; white-space: nowrap;
+  background: color-mix(in srgb, #3ccf8e 20%, var(--panel)); border: 1px solid #3ccf8e88; }
+.drow { display: grid; grid-template-columns: 104px minmax(0, 1fr) auto; gap: 12px; align-items: center;
+  padding: 5px 14px 5px 78px; cursor: pointer; border-top: 1px solid color-mix(in srgb, var(--line) 50%, transparent); }
 .drow:hover { background: var(--row); }
-.drow.on { background: color-mix(in srgb, #ff5a5a 20%, transparent); }
-.drow.on .nm1 { text-decoration: line-through; text-decoration-color: #ff7070; }
-.drow .nm1, .drow .where { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.drow .where { color: var(--muted); font-size: 12px; }
-.drow .date { color: var(--muted); text-align: right; font-size: 12px; }
+.pill { font-size: 12px; font-weight: 700; border-radius: 999px; padding: 3px 0; text-align: center;
+  border: 1px solid #3ccf8e; color: color-mix(in srgb, #2fbf7f 75%, var(--fg)); }
+.drow.del { background: color-mix(in srgb, #e5484d 13%, transparent); }
+.drow.del .pill { background: #e5484d; border-color: #e5484d; color: #fff; }
+.drow.del .folder, .drow.del .fname { text-decoration: line-through; opacity: .75; }
+.drow .folder, .drow .fname { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.drow .fname, .drow .date { color: var(--muted); font-size: 12px; }
+.dbar { position: sticky; bottom: 0; display: flex; align-items: center; gap: 12px; padding: 12px 16px;
+  background: var(--panel); border: 1px solid #e5484d88; border-radius: 12px; box-shadow: 0 -6px 26px #0006; }
+.dbar[hidden] { display: none; }
+.dbar .what { flex: 1; font-size: 14px; }
+.btn-danger { background: #e5484d; border-color: #e5484d; color: #fff; font-weight: 600; }
+#toast { position: fixed; left: 50%; bottom: 46px; transform: translateX(-50%); background: var(--fg); color: var(--bg);
+  padding: 9px 16px; border-radius: 9px; z-index: 40; font-weight: 600; box-shadow: 0 6px 20px #0006; }
+#toast[hidden] { display: none; }
 .warn { background: color-mix(in srgb, #ff5a5a 18%, var(--panel)); border: 1px solid #ff707088; border-radius: 8px;
   padding: 8px 10px; margin-bottom: 10px; }
 header { display: flex; gap: 10px; align-items: center; padding: 8px 12px;
@@ -247,22 +273,71 @@ button.primary.danger { background: #d93b3b; border-color: #d93b3b; color: #fff;
 </main>
 
 <main id="dupview" hidden>
-  <div class="duphead">
-    <label>Taille minimale
-      <select id="dupMin">
-        <option value="102400">100 Ko</option>
-        <option value="1048576" selected>1 Mo</option>
-        <option value="10485760">10 Mo</option>
-        <option value="104857600">100 Mo</option>
-      </select>
-    </label>
-    <label><input type="checkbox" id="dupSkip" checked> Ignorer jeux, programmes, code et caches</label>
-    <button id="bDup" class="primary">Chercher les doublons</button>
-    <span class="note">Fichiers au contenu strictement identique (comparé octet par octet via une empreinte BLAKE2).
-      Les copies à l'intérieur des jeux et des programmes sont normales : les supprimer pourrait les casser.</span>
-  </div>
-  <div id="dupSummary" class="dupsum"></div>
-  <div id="dupList"></div>
+  <section id="dupIntro" class="dcard dintro">
+    <h2>Fichiers en double</h2>
+    <p>LinStat cherche les fichiers <b>identiques</b> rangés à plusieurs endroits, même sous des noms
+      différents, et t'aide à récupérer la place qu'ils prennent en trop.</p>
+    <button id="bDup" class="primary big-btn">Chercher les doublons</button>
+    <details>
+      <summary>Options</summary>
+      <div class="dopts">
+        <label>Ignorer les fichiers de moins de
+          <select id="dupMin">
+            <option value="102400">100 Ko</option>
+            <option value="1048576" selected>1 Mo</option>
+            <option value="10485760">10 Mo</option>
+            <option value="104857600">100 Mo</option>
+          </select>
+        </label>
+        <label><input type="checkbox" id="dupSkip" checked> Ne pas toucher aux jeux, logiciels, code et caches
+          <span class="dim">(recommandé : ils ont souvent besoin de leurs copies pour fonctionner)</span></label>
+      </div>
+    </details>
+  </section>
+
+  <section id="dupResult" hidden>
+    <div class="dcard">
+      <p class="lead" id="dupLead"></p>
+      <div class="dchoices">
+        <div class="dchoice safe">
+          <span class="tag">SANS RISQUE</span>
+          <h3>🔗 Tout garder, mais ne stocker qu'une fois</h3>
+          <p>Aucun fichier n'est supprimé ni déplacé : chaque copie reste où elle est, avec son nom.
+            Le disque ne garde qu'<b>un seul exemplaire</b> de leur contenu. Parfait pour un modèle IA
+            utilisé par plusieurs logiciels.</p>
+          <details>
+            <summary>Comment c'est possible ?</summary>
+            <p>Un fichier, c'est un nom qui pointe vers son contenu rangé sur le disque. Ici, toutes les
+              copies pointent vers le même contenu au lieu d'en avoir chacune un. Si tu modifies une copie
+              plus tard, le disque lui crée sa propre version : les autres ne changent pas.</p>
+          </details>
+          <div class="row" id="shareRow"></div>
+        </div>
+        <div class="dchoice">
+          <h3>🗑 Supprimer les copies en trop</h3>
+          <p>Un seul exemplaire de chaque fichier est gardé ; les autres vont à la corbeille,
+            d'où tu peux encore les récupérer.</p>
+          <div class="row">
+            <label>Garder
+              <select id="dupKeep">
+                <option value="ancien">le plus ancien (souvent l'original)</option>
+                <option value="recent">le plus récent</option>
+                <option value="court">celui rangé le moins profond</option>
+              </select>
+            </label>
+            <button id="bMarkAll">Préparer la suppression</button>
+          </div>
+          <p class="small dim">Rien n'est supprimé tout de suite : tu vérifies la liste, puis tu valides en bas.</p>
+        </div>
+      </div>
+    </div>
+    <div id="dupList"></div>
+    <div id="dupBar" class="dbar" hidden>
+      <span class="what" id="dupBarText"></span>
+      <button id="bUnmark">Annuler</button>
+      <button id="bTrashMarked" class="btn-danger">Mettre à la corbeille</button>
+    </div>
+  </section>
 </main>
 
 <main id="catview" hidden>
@@ -279,6 +354,7 @@ button.primary.danger { background: #d93b3b; border-color: #d93b3b; color: #fff;
 </main>
 <footer id="status">&nbsp;</footer>
 <div id="tip"></div>
+<div id="toast" hidden></div>
 <div id="menu" hidden></div>
 <div id="modal" hidden>
   <div class="dlg" role="dialog" aria-modal="true">
@@ -1193,18 +1269,28 @@ addEventListener("mousedown", ev => {
 
 // ---------- Doublons ----------
 let dupData = null, dupShown = 150;
-const dupChecked = new Map();  // chemin -> cible cochée
+const dupChecked = new Map();  // copies marquées « à supprimer » : chemin -> cible
 const dupDate = m => new Date(m * 1000).toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" });
 const dupTarget = (f, g) => ({ path: f[0], name: baseName(f[0]), size: g.size, cat: f[2] });
+const extra = g => g.size * (g.files.length - 1);           // place prise en trop par un groupe
+const nb = (n, mot) => `${n.toLocaleString("fr")} ${mot}${n > 1 ? "s" : ""}`;
 
+let toastTimer;
+function toast(msg) {
+  const t = $("#toast");
+  t.textContent = msg; t.hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.hidden = true; }, 2800);
+}
+
+const PHASES = { "comparaison rapide": "Comparaison des fichiers", "vérification complète": "Vérification" };
 $("#bDup").onclick = async () => {
   if (!root) return;
   const ld = $("#loading");
   ld.style.display = "grid"; ld.textContent = "Recherche des doublons…";
   const poll = setInterval(async () => {
     const p = await (await fetch("/api/dupprogress")).json();
-    if (p.total) ld.textContent = `Doublons — ${p.phase} : ${files(p.files)}, ${fmt(p.done)} / ${fmt(p.total)}` +
-      ` (${Math.floor(100 * p.done / p.total)} %)`;
+    if (p.total) ld.textContent = `${PHASES[p.phase] || "Recherche"}… ${Math.floor(100 * p.done / p.total)} %`;
   }, 300);
   try {
     const r = await post("/api/duplicates", { minSize: +$("#dupMin").value, skip: $("#dupSkip").checked });
@@ -1220,15 +1306,15 @@ $("#bDup").onclick = async () => {
   }
 };
 
-// Ne garder qu'un exemplaire par groupe, selon une règle ; tous les autres sont cochés
+// Un exemplaire gardé par fichier, selon la règle choisie ; les autres sont marqués « à supprimer »
 const KEEP = {
-  ancien: g => g.files[0],                        // les fichiers arrivent triés par date
+  ancien: g => g.files[0],                        // les copies arrivent triées par date
   recent: g => g.files[g.files.length - 1],
-  court: g => g.files.reduce((a, f) => f[0].length < a[0].length ? f : a),
+  court: g => g.files.reduce((a, f) => f[0].split("/").length < a[0].split("/").length ? f : a),
 };
 function autoCheck(rule) {
   dupChecked.clear();
-  if (rule) for (const g of dupData.groups.filter(g => !g.shared)) {
+  if (rule) for (const g of dupData.groups.filter(g => !g.shared)) {  // déjà stockés une fois : rien à gagner
     const keep = KEEP[rule](g);
     for (const f of g.files) if (f !== keep) dupChecked.set(f[0], dupTarget(f, g));
   }
@@ -1238,90 +1324,97 @@ function autoCheck(rule) {
 
 function buildDupView() {
   if (!root || $("#dupview").hidden) return;
-  const sum = $("#dupSummary"), box = $("#dupList");
-  if (!dupData) {
-    sum.innerHTML = "";
-    box.innerHTML = `<div class="empty">Lance la recherche pour trouver les fichiers en double dans ${esc(root.n)}.</div>`;
-    return;
-  }
-  const groups = dupData.groups;
-  if (!groups.length) {
-    sum.innerHTML = "";
-    box.innerHTML = `<div class="empty">Plus aucun doublon avec ces réglages. 🎉</div>`;
-    return;
-  }
-  const gain = g => g.size * (g.files.length - 1);
-  const todo = groups.filter(g => !g.shared);
-  const waste = todo.reduce((a, g) => a + gain(g), 0);
-  const sharedCount = groups.length - todo.length;
-  const picked = [...dupChecked.values()].reduce((a, t) => a + t.size, 0);
-  sum.innerHTML = `<span class="big">${waste ? `${fmt(waste)} récupérables` : "Tout est partagé 🎉"}</span>
-    <span class="dim">${groups.length.toLocaleString("fr")} groupes${dupData.count > groups.length ? ` (sur ${dupData.count.toLocaleString("fr")})` : ""}
-    ${sharedCount ? ` · ${sharedCount.toLocaleString("fr")} déjà partagés` : ""} · cherché en ${dupData.seconds} s</span>
-    <span style="flex:1"></span>
-    <span class="dim">Ne garder que :</span>
-    <button data-keep="ancien">le plus ancien</button>
-    <button data-keep="recent">le plus récent</button>
-    <button data-keep="court">le chemin le plus court</button>
-    <button data-keep="">Tout décocher</button>
-    ${dupChecked.size ? `<span><b>${files(dupChecked.size)}</b> cochés · ${fmt(picked)}</span>` : ""}`;
-  sum.querySelectorAll("[data-keep]").forEach(b => b.onclick = () => autoCheck(b.dataset.keep));
-  if (dupData.canShare && todo.length) {
-    const box = document.createElement("div");
-    box.className = "sharebox";
-    box.innerHTML = `<p>🔗 <b>Sans rien supprimer :</b> les copies restent toutes à leur place, mais n'occupent
-      la place qu'une seule fois. Si tu modifies l'une d'elles, seule celle-ci change.</p>
-      <button class="primary" id="bShareAll">Partager les blocs (${fmt(waste)})</button>`;
-    sum.append(box);
-    box.querySelector("#bShareAll").onclick = () => runShare(todo);
-  }
+  $("#dupIntro").hidden = !!dupData;
+  $("#dupResult").hidden = !dupData;
+  if (!dupData) return;
+  const groups = dupData.groups, todo = groups.filter(g => !g.shared);
+  const waste = todo.reduce((a, g) => a + extra(g), 0);
+  const copies = todo.reduce((a, g) => a + g.files.length - 1, 0);
+  const done = groups.length - todo.length;
+  const again = `<button class="relaunch" id="bDupAgain">Nouvelle recherche</button>`;
+  $("#dupLead").innerHTML = !groups.length ? `🎉 Aucun fichier en double trouvé. ${again}`
+    : !waste ? `🎉 Tous tes doublons sont déjà stockés une seule fois : il n'y a plus de place à récupérer. ${again}`
+    : `<span class="big">${fmt(waste)}</span> pris en trop par <b>${nb(copies, "copie")}</b> en double.
+       ${done ? `<span class="dim">(${nb(done, "fichier")} déjà stocké${done > 1 ? "s" : ""} une seule fois)</span>` : ""} ${again}`;
+  $("#bDupAgain").onclick = () => { dupData = null; dupChecked.clear(); setTargets([]); buildDupView(); };
+  $(".dchoices").hidden = !waste;
+  $("#shareRow").innerHTML = !dupData.canShare
+    ? `<span class="dim">Pas disponible sur ce disque (il faut le système de fichiers btrfs ou XFS).</span>`
+    : `<button class="primary big-btn" id="bShareAll">Libérer ${fmt(waste)} sans rien supprimer</button>`;
+  if ($("#bShareAll")) $("#bShareAll").onclick = () => runShare(todo);
 
   const frag = document.createDocumentFragment();
   for (const g of groups.slice(0, dupShown)) {
-    const first = g.files[0][0], name = baseName(first), ext = extOf(name);
+    const gi = groups.indexOf(g), first = g.files[0][0], name = baseName(first), ext = extOf(name);
     const sec = document.createElement("section");
     sec.className = "dgroup";
     sec.style.setProperty("--c", `rgb(${catColor[g.files[0][2]] || OTHER})`);
     sec.innerHTML = `<div class="dghead">` +
       (canThumb(ext) ? `<img class="thumb" loading="lazy" alt="" data-ext="${esc(ext)}" src="/api/thumb?path=${encodeURIComponent(first)}">`
                      : `<span class="thumb">${ext === "(aucune)" ? "" : esc(ext)}</span>`) +
-      `<div><div class="nm1">${esc(name)}</div>
-        <div class="dim">${g.files.length} copies × ${fmt(g.size)} · ${esc(g.files[0][2])}</div></div>
-      <span class="gain">${g.shared ? `<span class="badge">🔗 blocs partagés</span>`
-        : `${fmt(g.size * (g.files.length - 1))}${dupData.canShare ? ` <button data-share="${dupData.groups.indexOf(g)}">Partager</button>` : ""}`}</span></div>`;
-    if (g.shared) sec.classList.add("shared");
+      `<div><div class="nm1">${esc(name)}</div><div class="dim">${g.files.length} exemplaires de ${fmt(g.size)}</div></div>
+      <div class="side">${g.shared ? `<span class="chip">✓ Déjà stocké une seule fois</span>`
+        : `<span class="extra">${fmt(extra(g))} en trop</span>` +
+          (dupData.canShare ? `<button data-share="${gi}" title="Garder tous les exemplaires, ne stocker le contenu qu'une fois">🔗 Stocker une fois</button>` : "")}</div>
+      </div>`;
     for (const f of g.files) {
-      const on = dupChecked.has(f[0]);
+      const del = dupChecked.has(f[0]), fn = baseName(f[0]);
       const r = document.createElement("div");
-      r.className = "drow" + (on ? " on" : "");
-      r.innerHTML = `<input type="checkbox"${on ? " checked" : ""}>
-        <div><div class="nm1" title="${esc(f[0])}">${esc(baseName(f[0]))}</div><div class="where">${esc(where(f[0]))}</div></div>
-        <span class="date">${dupDate(f[1])}</span>`;
+      r.className = "drow" + (del ? " del" : "");
+      r.title = del ? "Cliquer pour garder cet exemplaire" : "Cliquer pour supprimer cet exemplaire";
+      r.innerHTML = `<span class="pill">${del ? "✕ Supprimer" : "✓ Garder"}</span>
+        <div><div class="folder" title="${esc(f[0])}">📁 ${esc(where(f[0]))}</div>
+          ${fn !== name ? `<div class="fname">${esc(fn)}</div>` : ""}</div>
+        <span class="date">modifié le ${dupDate(f[1])}</span>`;
       r.target = dupTarget(f, g);
+      r.dataset.g = gi;
       sec.append(r);
     }
     frag.append(sec);
   }
+  const box = $("#dupList");
   box.textContent = "";
   box.append(frag);
   if (groups.length > dupShown) {
     const more = document.createElement("button");
-    more.textContent = `Afficher ${Math.min(150, groups.length - dupShown)} groupes de plus`;
+    more.textContent = `Afficher ${Math.min(150, groups.length - dupShown)} fichiers de plus`;
     more.onclick = () => { dupShown += 150; buildDupView(); };
     box.append(more);
   }
+  updateDupBar();
 }
+
+function updateDupBar() {
+  const n = dupChecked.size, size = [...dupChecked.values()].reduce((a, t) => a + t.size, 0);
+  $("#dupBar").hidden = !n;
+  $("#dupBarText").innerHTML = `<b>${nb(n, "copie")}</b> ${n > 1 ? "seront mises" : "sera mise"} à la corbeille · <b>${fmt(size)}</b> libérés`;
+}
+$("#bMarkAll").onclick = () => {
+  autoCheck($("#dupKeep").value);
+  toast(`${nb(dupChecked.size, "copie")} à supprimer : vérifie la liste, puis valide en bas.`);
+};
+$("#bUnmark").onclick = () => autoCheck(null);
+$("#bTrashMarked").onclick = () => { setTargets([...dupChecked.values()]); runOp("trash"); };
 
 const dupList_ = $("#dupList");
 dupList_.addEventListener("click", ev => {
   const sb = ev.target.closest("[data-share]");
   if (sb) return runShare([dupData.groups[+sb.dataset.share]]);
   const r = ev.target.closest(".drow"); if (!r) return;
-  const on = !dupChecked.has(r.target.path);
-  if (on) dupChecked.set(r.target.path, r.target); else dupChecked.delete(r.target.path);
-  r.classList.toggle("on", on);
-  r.querySelector("input").checked = on;
+  const g = dupData.groups[+r.dataset.g], path = r.target.path;
+  if (!dupChecked.has(path)) {
+    // Toujours au moins un exemplaire gardé
+    if (g.files.filter(f => !dupChecked.has(f[0])).length <= 1) return toast("Garde au moins un exemplaire de ce fichier.");
+    dupChecked.set(path, r.target);
+  } else {
+    dupChecked.delete(path);
+  }
+  const del = dupChecked.has(path);
+  r.classList.toggle("del", del);
+  r.querySelector(".pill").textContent = del ? "✕ Supprimer" : "✓ Garder";
+  r.title = del ? "Cliquer pour garder cet exemplaire" : "Cliquer pour supprimer cet exemplaire";
   setTargets([...dupChecked.values()]);
+  updateDupBar();
 });
 dupList_.addEventListener("dblclick", ev => {
   const r = ev.target.closest(".drow"); if (!r) return;
@@ -1330,8 +1423,7 @@ dupList_.addEventListener("dblclick", ev => {
 dupList_.addEventListener("contextmenu", ev => {
   const r = ev.target.closest(".drow"); if (!r) return;
   ev.preventDefault();
-  if (!dupChecked.has(r.target.path)) { dupChecked.clear(); dupChecked.set(r.target.path, r.target); buildDupView(); }
-  setTargets([...dupChecked.values()]);
+  setTargets([r.target]);
   showMenu(ev.clientX, ev.clientY);
 });
 dupList_.addEventListener("error", ev => {
@@ -1341,7 +1433,7 @@ dupList_.addEventListener("error", ev => {
   ev.target.replaceWith(s);
 }, true);
 
-// Garde-fou : combien de groupes perdraient TOUTES leurs copies avec cette sélection ?
+// Garde-fou : combien de fichiers perdraient TOUS leurs exemplaires avec cette sélection ?
 function allCopiesLost(list) {
   if (!dupData) return 0;
   const gone = list.map(t => t.path);
@@ -1349,7 +1441,7 @@ function allCopiesLost(list) {
   return dupData.groups.filter(g => g.files.every(f => covered(f[0]))).length;
 }
 
-// Les groupes suivent les suppressions, déplacements et renommages
+// Les doublons suivent les suppressions, déplacements et renommages
 function dupChange(op, path, newPath) {
   if (!dupData) return;
   const gone = op === "trash" || op === "delete" || (op === "move" && !insideRoot(newPath));
@@ -1358,22 +1450,23 @@ function dupChange(op, path, newPath) {
       .filter(f => !(gone && (f[0] === path || f[0].startsWith(path + "/"))))
       .map(f => f[0] === path || f[0].startsWith(path + "/") ? [newPath + f[0].slice(path.length), f[1], f[2]] : f);
   }
-  dupData.groups = dupData.groups.filter(g => g.files.length > 1);  // plus de doublon : groupe résolu
+  dupData.groups = dupData.groups.filter(g => g.files.length > 1);  // plus de doublon : réglé
 }
 
-// ---------- Partage des blocs (déduplication sans perte) ----------
+// ---------- « Ne stocker qu'une fois » (partage des blocs, btrfs / XFS) ----------
 async function runShare(groups) {
-  const total = groups.reduce((a, g) => a + g.size * (g.files.length - 1), 0);
+  const total = groups.reduce((a, g) => a + extra(g), 0);
   const n = groups.reduce((a, g) => a + g.files.length, 0);
-  if (!await ask({ title: "Partager les blocs ?", ok: "Partager",
-    html: `${groups.length} groupe${groups.length > 1 ? "s" : ""} (${files(n)}), jusqu'à <b>${fmt(total)}</b> libérés.<br><br>
-      <b>Aucun fichier n'est supprimé ni modifié</b> : ils restent tous à leur place et gardent leur date.
-      Le noyau vérifie lui-même, octet par octet, que les fichiers sont identiques avant de partager ;
-      s'ils ne le sont plus, il ne touche à rien.` })) return;
-  busy(true, "Partage des blocs…");
+  if (!await ask({ title: "Ne stocker qu'une fois ?", ok: `Libérer ${fmt(total)}`,
+    html: `Les ${n} exemplaires ${groups.length > 1 ? `de ${nb(groups.length, "fichier")} ` : ""}<b>restent tous à leur place</b>,
+      avec leur nom et leur date. Le disque ne gardera qu'un seul exemplaire de leur contenu :
+      jusqu'à <b>${fmt(total)}</b> libérés.<br><br>
+      <span class="dim">Si tu modifies une copie plus tard, seule celle-ci change. Avant chaque fusion, Linux vérifie
+      lui-même que les fichiers sont parfaitement identiques ; sinon, il n'y touche pas.</span>` })) return;
+  busy(true, "Libération de l'espace…");
   const poll = setInterval(async () => {
     const p = await (await fetch("/api/shareprogress")).json();
-    if (p.total) $("#loading").textContent = `Partage des blocs : ${fmt(p.done)} / ${fmt(p.total)} (${Math.floor(100 * p.done / p.total)} %)`;
+    if (p.total) $("#loading").textContent = `Libération de l'espace… ${Math.floor(100 * p.done / p.total)} %`;
   }, 300);
   let res;
   try {
@@ -1389,14 +1482,14 @@ async function runShare(groups) {
   for (const g of groups) if (g.files.slice(1).every(f => ok.has(f[0]))) g.shared = true;
   const shared = res.results.filter(x => x.ok).reduce((a, x) => a + x.bytes, 0);
   const failed = res.results.filter(x => !x.ok);
-  $("#status").textContent = `${fmt(shared)} partagés · espace libre gagné : ${fmt(Math.max(0, res.freed))}`;
+  const freed = Math.max(0, res.freed);
+  $("#status").textContent = `${fmt(freed)} libérés sans rien supprimer`;
   buildDupView();
-  await ask({ title: res.error ? "Partage impossible" : "Partage terminé", cancel: false,
-    html: res.error ? esc(res.error) : `<b>${fmt(shared)}</b> partagés.<br>Espace libre gagné sur le disque (mesuré) :
-      <b>${fmt(Math.max(0, res.freed))}</b>.` +
-      (res.freed < shared * 0.8 ? `<br><br><span class="dim">Gain plus faible que prévu ? Des instantanés btrfs (snapshots)
-        peuvent encore référencer les anciens blocs, et le disque libère parfois la place quelques secondes plus tard.</span>` : "") +
-      (failed.length ? `<br><br>${failed.length} fichier${failed.length > 1 ? "s" : ""} non partagé${failed.length > 1 ? "s" : ""} :` +
+  await ask({ title: res.error ? "Impossible de libérer l'espace" : "C'est fait ✓", cancel: false,
+    html: res.error ? esc(res.error) : `<b>${fmt(freed)}</b> libérés sur ton disque.<br>Tous tes fichiers sont toujours là, à leur place.` +
+      (freed < shared * 0.8 ? `<br><br><span class="dim">Un peu moins que prévu ? C'est normal si ton système garde des
+        sauvegardes automatiques (instantanés btrfs) : elles conservent l'ancien contenu.</span>` : "") +
+      (failed.length ? `<br><br>${nb(failed.length, "copie")} n'${failed.length > 1 ? "ont" : "a"} pas pu être traitée${failed.length > 1 ? "s" : ""} :` +
         failed.slice(0, 8).map(x => `<div><b>${esc(baseName(x.path))}</b> <span class="dim">— ${esc(x.error)}</span></div>`).join("") : "") });
 }
 
