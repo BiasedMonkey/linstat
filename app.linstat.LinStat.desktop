@@ -1,0 +1,22 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=LinStat
+GenericName=Analyseur d'espace disque
+Comment=Voir ce qui prend de la place sur le disque, façon WinDirStat
+Exec=python3 @DEST@/linstat.py
+Icon=linstat
+Terminal=false
+Categories=System;Filesystem;
+Keywords=disque;espace;windirstat;treemap;taille;fichiers;stockage;
+StartupNotify=true
+StartupWMClass=app.linstat.LinStat
+Actions=home;root;
+
+[Desktop Action home]
+Name=Analyser le dossier personnel
+Exec=python3 @DEST@/linstat.py @HOME@
+
+[Desktop Action root]
+Name=Analyser tout le disque système
+Exec=python3 @DEST@/linstat.py /

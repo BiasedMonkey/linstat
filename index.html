@@ -1,0 +1,1054 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LinStat</title>
+<style>
+:root {
+  --bg: #1c1d20; --panel: #26282c; --row: #2e3035; --fg: #e8e8ea; --muted: #9b9da4;
+  --line: #3a3c42; --accent: #5b9dff; --bar: #4a7fd6;
+}
+@media (prefers-color-scheme: light) {
+  :root { --bg: #eef0f3; --panel: #fff; --row: #f2f4f7; --fg: #1d1e21; --muted: #676a71;
+          --line: #d9dce1; --accent: #2f6fde; --bar: #7aa7ee; }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg);
+  font: 13px/1.35 system-ui, "Segoe UI", sans-serif; }
+body { display: grid; grid-template-rows: auto auto 1fr auto; height: 100vh; }
+main { min-height: 0; }
+#mapview { display: grid; grid-template-rows: var(--top, 42%) 6px auto 1fr; }
+#mapview[hidden], #catview[hidden] { display: none; }
+header { display: flex; gap: 10px; align-items: center; padding: 8px 12px;
+  background: var(--panel); border-bottom: 1px solid var(--line); min-width: 0; }
+header h1 { font-size: 15px; margin: 0; white-space: nowrap; }
+header .info { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+button { font: inherit; color: var(--fg); background: var(--row); border: 1px solid var(--line);
+  border-radius: 6px; padding: 4px 10px; cursor: pointer; white-space: nowrap; }
+button:hover:not(:disabled) { border-color: var(--accent); }
+button:disabled { opacity: .45; cursor: default; }
+
+#top { display: grid; grid-template-columns: 1fr 340px; min-height: 0; }
+.pane { display: flex; flex-direction: column; min-height: 0; background: var(--panel); }
+.pane + .pane { border-left: 1px solid var(--line); }
+.tabs { display: flex; border-bottom: 1px solid var(--line); }
+.tabs button { border: 0; border-radius: 0; background: none; padding: 6px 12px; color: var(--muted); }
+.tabs button.on { color: var(--fg); box-shadow: inset 0 -2px var(--accent); }
+.list { overflow: auto; flex: 1; }
+.r { display: grid; align-items: center; gap: 8px; padding: 1px 8px; cursor: default; white-space: nowrap; }
+.r:hover { background: var(--row); }
+.r.sel { background: color-mix(in srgb, var(--accent) 28%, transparent); }
+#tree .r { grid-template-columns: 1fr 110px 80px 52px; }
+#big .r { grid-template-columns: 1fr 80px; }
+#exts .r, #cats .r { grid-template-columns: 14px 1fr 70px 46px; }
+#cats .r { padding: 3px 8px; }
+#stack { display: flex; height: 10px; margin: 8px 8px 4px; border-radius: 3px; overflow: hidden; flex: none; }
+#stack i { display: block; height: 100%; }
+#stack[hidden] { display: none; }
+.name { overflow: hidden; text-overflow: ellipsis; }
+.tg { display: inline-block; width: 14px; color: var(--muted); }
+.num { text-align: right; font-variant-numeric: tabular-nums; }
+.dim { color: var(--muted); }
+.bar { height: 8px; background: var(--row); border-radius: 2px; overflow: hidden; }
+.bar i { display: block; height: 100%; background: var(--bar); }
+.sw { width: 12px; height: 12px; border-radius: 3px; }
+#exts .r.on, #cats .r.on { outline: 1px solid var(--accent); outline-offset: -1px; }
+
+#split { background: var(--line); cursor: row-resize; }
+#crumbs { padding: 5px 12px; background: var(--panel); border-bottom: 1px solid var(--line);
+  display: flex; gap: 4px; flex-wrap: wrap; align-items: center; }
+#crumbs a { color: var(--accent); cursor: pointer; }
+#crumbs .hint { margin-left: auto; color: var(--muted); }
+#mapwrap { position: relative; min-height: 0; }
+#mapwrap canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+/* Déplacée par transform : la page n'est jamais remise en page pendant le survol */
+#tip { position: fixed; left: 0; top: 0; pointer-events: none; background: var(--panel);
+  border: 1px solid var(--line); border-radius: 6px; padding: 5px 8px; box-shadow: 0 4px 16px #0005;
+  display: none; max-width: 520px; overflow-wrap: anywhere; z-index: 5; will-change: transform; }
+.box { position: absolute; left: 0; top: 0; pointer-events: none; display: none; will-change: transform; }
+#hoverBox { border: 1px solid rgba(255,255,255,.6); }
+#selBox { border: 2px solid #fff; box-shadow: 0 0 0 1px #0009; }
+footer { padding: 4px 12px; background: var(--panel); border-top: 1px solid var(--line); color: var(--muted);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#loading { position: fixed; inset: 0; display: grid; place-items: center; background: #0008;
+  color: #fff; font-size: 16px; z-index: 10; }
+#picker { position: fixed; inset: 0; display: grid; place-items: center; background: var(--bg); z-index: 8;
+  padding: 16px; overflow: auto; }
+#picker[hidden] { display: none; }
+#picker .card { width: min(560px, 100%); background: var(--panel); border: 1px solid var(--line);
+  border-radius: 12px; padding: 22px; box-shadow: 0 10px 40px #0004; }
+#picker h2 { margin: 0 0 4px; font-size: 20px; }
+#picker p { margin: 0 0 16px; color: var(--muted); }
+.place { display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; width: 100%; text-align: left;
+  padding: 10px 12px; margin-bottom: 8px; border-radius: 8px; }
+.place b { font-size: 14px; }
+.place .dim { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.place .bar { grid-column: 1 / -1; height: 6px; margin-top: 4px; }
+.custom { display: flex; gap: 8px; margin-top: 14px; }
+.custom input { flex: 1; min-width: 0; font: inherit; color: var(--fg); background: var(--bg);
+  border: 1px solid var(--line); border-radius: 6px; padding: 5px 8px; }
+button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+button.danger:not(:disabled) { color: #ff7070; border-color: #ff707066; }
+button.primary.danger { background: #d93b3b; border-color: #d93b3b; color: #fff; }
+
+/* Bascule de vue */
+.seg { display: flex; border: 1px solid var(--line); border-radius: 7px; overflow: hidden; flex: none; }
+.seg button { border: 0; border-radius: 0; background: none; color: var(--muted); }
+.seg button.on { background: var(--accent); color: #fff; }
+
+/* Barre d'actions */
+#actions { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 6px 12px;
+  background: var(--panel); border-bottom: 1px solid var(--line); }
+#selInfo { flex: 1; min-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Vue Catégories */
+#catview { overflow: auto; padding: 12px; display: flex; flex-direction: column; gap: 12px; }
+#catstack { display: flex; height: 14px; border-radius: 4px; overflow: hidden; flex: none; }
+#catstack i { display: block; height: 100%; }
+#cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; flex: none; }
+.card { text-align: left; padding: 10px 12px; border-radius: 10px; background: var(--panel);
+  border: 1px solid var(--line); border-top: 4px solid var(--c); display: grid; gap: 2px; white-space: normal; }
+.card.on { outline: 2px solid var(--accent); outline-offset: 1px; }
+.card b { font-size: 14px; }
+.card .big { font-size: 20px; font-weight: 600; }
+.card .dim { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#catfiles { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; flex: none; }
+#catfiles .head { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+#catfiles .head h2 { font-size: 16px; margin: 0; }
+.frow { display: grid; grid-template-columns: 18px 52px minmax(0, 1fr) 96px; gap: 10px; align-items: center;
+  padding: 4px 12px; cursor: default; }
+.frow:hover { background: var(--row); }
+.frow.on { background: color-mix(in srgb, var(--accent) 22%, transparent); }
+.thumb { width: 52px; height: 38px; border-radius: 4px; background: var(--row); object-fit: cover;
+  display: grid; place-items: center; font-size: 10px; color: var(--muted); overflow: hidden; }
+.frow .nm1, .frow .where { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.frow .where { color: var(--muted); font-size: 12px; }
+.frow .sz { text-align: right; font-variant-numeric: tabular-nums; }
+.frow .szbar { height: 3px; background: var(--c); border-radius: 2px; margin: 3px 0 0 auto; }
+.empty { padding: 24px; text-align: center; color: var(--muted); }
+
+/* Menu contextuel et dialogues */
+#menu { position: fixed; z-index: 20; background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+  padding: 4px; box-shadow: 0 8px 30px #0006; min-width: 240px; }
+#menu button { display: block; width: 100%; text-align: left; border: 0; background: none; padding: 6px 10px; }
+#menu button:hover:not(:disabled) { background: var(--row); }
+#menu hr { border: 0; border-top: 1px solid var(--line); margin: 4px 0; }
+#modal { position: fixed; inset: 0; background: #0008; display: grid; place-items: center; z-index: 30; padding: 16px; }
+#modal[hidden], #menu[hidden] { display: none; }
+.dlg { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 18px;
+  width: min(500px, 100%); box-shadow: 0 10px 40px #0006; }
+.dlg h3 { margin: 0 0 8px; font-size: 16px; }
+.dlg .msg { margin-bottom: 12px; overflow-wrap: anywhere; max-height: 45vh; overflow: auto; }
+.dlg .msg > div + div { margin-top: 6px; }
+.dlg input { width: 100%; font: inherit; color: var(--fg); background: var(--bg); border: 1px solid var(--line);
+  border-radius: 6px; padding: 6px 8px; }
+.dlg .btns { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
+#bCancel { margin-top: 14px; }
+@media (max-width: 700px) {
+  #top { grid-template-columns: 1fr; }
+  #top > .pane:last-child { display: none; }
+}
+</style>
+</head>
+<body>
+<header>
+  <h1>LinStat</h1>
+  <div class="seg">
+    <button data-view="map" class="on">Carte</button>
+    <button data-view="cat">Catégories</button>
+  </div>
+  <span class="info" id="info">…</span>
+  <button id="bChange">Changer de dossier</button>
+  <button id="bRescan" disabled>Réanalyser</button>
+</header>
+<div id="actions">
+  <span id="selInfo" class="dim"></span>
+  <button data-op="open">Ouvrir</button>
+  <button data-op="show">Afficher dans le dossier</button>
+  <button data-op="copy">Copier le chemin</button>
+  <button data-op="rename">Renommer…</button>
+  <button data-op="move">Déplacer…</button>
+  <button data-op="trash">Corbeille</button>
+  <button data-op="delete" class="danger">Supprimer…</button>
+</div>
+
+<main id="mapview">
+<div id="top">
+  <div class="pane">
+    <div class="tabs">
+      <button data-tab="tree" class="on">Arborescence</button>
+      <button data-tab="big">Plus gros fichiers</button>
+    </div>
+    <div class="list" id="tree"></div>
+    <div class="list" id="big" hidden></div>
+  </div>
+  <div class="pane">
+    <div class="tabs">
+      <button data-side="cat" class="on">Catégories</button>
+      <button data-side="e">Extensions</button>
+    </div>
+    <div id="stack"></div>
+    <div class="list" id="cats"></div>
+    <div class="list" id="exts" hidden></div>
+  </div>
+</div>
+<div id="split"></div>
+<div id="crumbs"></div>
+<div id="mapwrap"><canvas id="map"></canvas><canvas id="over"></canvas>
+  <div id="hoverBox" class="box"></div><div id="selBox" class="box"></div></div>
+</main>
+
+<main id="catview" hidden>
+  <div id="catstack"></div>
+  <div id="cards"></div>
+  <section id="catfiles">
+    <div class="head">
+      <input type="checkbox" id="catAll" title="Tout cocher">
+      <h2 id="catTitle"></h2>
+      <span class="dim" id="catNote"></span>
+    </div>
+    <div id="catList"></div>
+  </section>
+</main>
+<footer id="status">&nbsp;</footer>
+<div id="tip"></div>
+<div id="menu" hidden></div>
+<div id="modal" hidden>
+  <div class="dlg" role="dialog" aria-modal="true">
+    <h3></h3>
+    <div class="msg"></div>
+    <input spellcheck="false">
+    <div class="btns"><button class="cancel">Annuler</button><button class="ok primary">OK</button></div>
+  </div>
+</div>
+<div id="loading">Chargement…</div>
+<div id="picker" hidden>
+  <div class="card">
+    <h2>Que veux-tu analyser ?</h2>
+    <p>Choisis un disque ou un dossier : LinStat montre ce qui prend de la place.</p>
+    <div id="places"></div>
+    <div class="custom">
+      <input id="pathIn" placeholder="/chemin/vers/un/dossier" spellcheck="false">
+      <button id="bBrowse">Parcourir…</button>
+      <button id="bGo" class="primary">Analyser</button>
+    </div>
+    <button id="bCancel" hidden>Annuler</button>
+  </div>
+</div>
+
+<script>
+"use strict";
+const $ = s => document.querySelector(s);
+const fmt = b => {
+  const u = ["o", "Ko", "Mo", "Go", "To"]; let i = 0;
+  while (b >= 1024 && i < u.length - 1) { b /= 1024; i++; }
+  return i ? `${b.toFixed(b < 10 ? 2 : 1)} ${u[i]}` : `${b} o`;
+};
+// « 1 fichier », « 2 fichiers »
+const files = n => `${n.toLocaleString("fr")} fichier${n > 1 ? "s" : ""}`;
+const pct = (a, b) => b ? (100 * a / b).toFixed(1) + " %" : "–";
+
+let root, viewRoot, selected = null, hovered = null, gen = 0;
+let hi = null;            // surlignage : { kind: "cat" | "e", value }
+let colorMode = "cat";    // la carte est colorée selon l'onglet de droite
+let extColor = new Map(), extList = [], catList = [], catColor = {}, catByExt = {};
+let catFiles = {}, scanInfo = null, curCat = null;
+let targets = [];             // éléments sur lesquels portent les actions : { path, name, size, node?, cat? }
+const checked = new Map();    // vue Catégories : chemin -> cible cochée
+
+// ---------- Données ----------
+const post = (url, body) => fetch(url, { method: "POST",
+  headers: { "Content-Type": "application/json", "X-LinStat": "1" }, body: JSON.stringify(body || {}) });
+
+async function start() {
+  const params = new URLSearchParams(location.search);
+  // Dossier demandé au lancement (ligne de commande, action du menu KDE)
+  const asked = params.get("scan");
+  if (asked) history.replaceState(null, "", "/");  // un rechargement ne relance pas l'analyse
+  const st = asked ? null : await (await fetch("/api/state")).json();
+  // Fichiers modifiés depuis l'analyse en mémoire (page rechargée) : on réanalyse
+  if (asked || st.dirty) await scan(asked || st.root);
+  else if (st.scanned) apply(await (await fetch("/api/tree")).json());
+  else showPicker();
+  $("#loading").style.display = "none";
+  // « ?vue=categories&cat=Vidéos » ouvre directement la vue Catégories (sur cette catégorie)
+  if (root && params.get("vue") === "categories") {
+    curCat = params.get("cat") || curCat;
+    document.querySelector('[data-view="cat"]').click();
+  }
+}
+
+async function scan(path) {
+  $("#picker").hidden = true;
+  const ld = $("#loading");
+  ld.style.display = "grid"; ld.textContent = `Analyse de ${path}…`;
+  const poll = setInterval(async () => {
+    const p = await (await fetch("/api/progress")).json();
+    ld.textContent = `Analyse de ${path}… ${files(p.files)}, ${fmt(p.size)}`;
+  }, 250);
+  try {
+    const r = await post("/api/scan", { path });
+    if (!r.ok) throw new Error(await r.text());
+    apply(await r.json());
+  } catch (e) {
+    alert("Impossible d'analyser : " + e.message);
+    showPicker();
+  } finally {
+    clearInterval(poll); ld.style.display = "none";
+  }
+}
+
+async function showPicker() {
+  $("#picker").hidden = false;
+  $("#bCancel").hidden = !root;
+  const box = $("#places"); box.textContent = "";
+  for (const p of await (await fetch("/api/places")).json()) {
+    const b = document.createElement("button"); b.className = "place";
+    const usage = p.total ? `${fmt(p.used)} / ${fmt(p.total)}` : "";
+    b.innerHTML = `<b>${esc(p.label)}</b><span class="num dim">${usage}</span>
+      <span class="dim">${esc(p.path)}</span><span></span>` +
+      (p.total ? `<span class="bar"><i style="width:${(100 * p.used / p.total).toFixed(1)}%"></i></span>` : "");
+    b.onclick = () => scan(p.path);
+    box.append(b);
+  }
+  $("#pathIn").focus();
+}
+$("#bGo").onclick = () => $("#pathIn").value.trim() && scan($("#pathIn").value.trim());
+$("#pathIn").onkeydown = ev => { if (ev.key === "Enter") $("#bGo").click(); };
+$("#bBrowse").onclick = async () => {
+  const { path } = await (await post("/api/pick")).json();
+  if (path) scan(path);
+};
+$("#bCancel").onclick = () => { $("#picker").hidden = true; };
+$("#bChange").onclick = showPicker;
+
+function apply(data) {
+  root = viewRoot = data.tree; selected = hovered = hi = null;
+  extList = data.exts.map(([e, s, n]) => ({ e, s, n }));
+  extColor = new Map(extList.slice(0, PALETTE.length).map((e, i) => [e.e, PALETTE[i]]));
+  catList = data.cats.map(([c, s, n, top]) => ({ c, s, n, top }));
+  catColor = data.catColors; catByExt = data.catByExt; catFiles = data.catFiles;
+  scanInfo = data;
+  prepare(root, null, null);
+  root.o = true;
+  checked.clear(); targets = [];
+  $("#bRescan").disabled = false;
+  refreshAll();
+}
+
+function extOf(name) {
+  const i = name.lastIndexOf(".");
+  // Même règle que scan_batch() côté Python (« archive. » n'a pas d'extension)
+  return i > 0 && i < name.length - 1 && name.length - i <= 16 ? name.slice(i + 1).toLowerCase() : "(aucune)";
+}
+
+// k : catégorie imposée par une règle de chemin d'un dossier parent (« k » dans le JSON)
+function prepare(n, p, k) {
+  n.p = p;
+  k = n.k || k;
+  if (n.c) { n.c.sort((a, b) => b.s - a.s); for (const c of n.c) prepare(c, n, k); }
+  else if (n.x) n.cat = k;
+  else { n.e = extOf(n.n); n.cat = k || catByExt[n.e] || "Autres"; }
+}
+
+function* leaves(n) {
+  if (n.c) { for (const c of n.c) yield* leaves(c); } else yield n;
+}
+
+function pathOf(n) {
+  if (n.x) n = n.p;
+  const parts = [];
+  for (let m = n; m.p; m = m.p) parts.unshift(m.n);
+  return parts.length ? root.n.replace(/\/$/, "") + "/" + parts.join("/") : root.n;
+}
+
+// ---------- Extensions & couleurs ----------
+const PALETTE = [[66,133,244],[234,67,53],[52,168,83],[251,188,5],[0,188,212],[171,71,188],
+  [255,112,67],[124,179,66],[236,64,122],[92,107,192],[38,166,154],[255,167,38],
+  [141,110,99],[120,144,156],[212,225,87],[149,117,205]];
+const OTHER = [150, 150, 150], SMALL = [95, 95, 100];
+
+// Les totaux viennent du serveur : ils comptent aussi les petits fichiers agrégés.
+function buildSide() {
+  const toggle = (kind, value) => {
+    hi = hi && hi.kind === kind && hi.value === value ? null : { kind, value };
+    buildSide(); drawHighlight();
+  };
+  const fill = (box, items, kind, color, label) => {
+    box.textContent = "";
+    for (const it of items) {
+      const value = it[kind === "cat" ? "c" : "e"];
+      const r = row(`<span class="sw" style="background:rgb(${color(value)})"></span>
+        <span class="name">${label(it)}</span>
+        <span class="num">${fmt(it.s)}</span><span class="num dim">${pct(it.s, root.s)}</span>`);
+      r.title = `${files(it.n)} — cliquer pour les surligner dans la carte`;
+      r.onclick = () => toggle(kind, value);
+      if (hi && hi.kind === kind && hi.value === value) r.classList.add("on");
+      box.append(r);
+    }
+  };
+  fill($("#cats"), catList, "cat", c => catColor[c] || OTHER,
+    it => `${esc(it.c)} <span class="dim">· ${esc(it.top.join(", "))}</span>`);
+  fill($("#exts"), extList.slice(0, 300), "e", e => extColor.get(e) || OTHER,
+    it => `${esc(it.e)} <span class="dim">· ${it.n.toLocaleString("fr")}</span>`);
+  // Barre de répartition des catégories
+  $("#stack").innerHTML = catList.map(it =>
+    `<i style="flex:${it.s} 0 0;background:rgb(${catColor[it.c] || OTHER})" title="${esc(it.c)} — ${fmt(it.s)}"></i>`).join("");
+}
+
+document.querySelectorAll("[data-side]").forEach(b => b.onclick = () => {
+  document.querySelectorAll("[data-side]").forEach(x => x.classList.toggle("on", x === b));
+  colorMode = b.dataset.side;
+  $("#cats").hidden = $("#stack").hidden = colorMode !== "cat";
+  $("#exts").hidden = colorMode !== "e";
+  hi = null;
+  if (root) { buildSide(); render(); }
+});
+
+const dim = c => c.map(v => v * 0.6);
+function colorOf(n) {
+  if (n.c) return OTHER;
+  if (colorMode === "cat") {
+    const c = n.cat && catColor[n.cat];
+    return n.x ? (c ? dim(c) : SMALL) : (c || OTHER);  // petits éléments : teinte assombrie
+  }
+  return n.x ? SMALL : (extColor.get(n.e) || OTHER);
+}
+
+// ---------- Listes ----------
+function esc(s) { return s.replace(/[&<>"]/g, c => `&#${c.charCodeAt(0)};`); }
+function row(html) { const d = document.createElement("div"); d.className = "r"; d.innerHTML = html; return d; }
+
+function buildTree() {
+  const box = $("#tree"), keep = box.scrollTop; box.textContent = "";
+  const frag = document.createDocumentFragment();
+  (function walk(n, depth) {
+    const tg = n.c && n.c.length ? (n.o ? "▾" : "▸") : "";
+    const share = n.p ? n.s / n.p.s : 1;
+    const label = n.x ? `<i class="dim">${esc(n.n)}</i>` : esc(n.n) + (n.c && !n.n.endsWith("/") ? "/" : "");
+    const r = row(`<span class="name" style="padding-left:${depth * 14}px"><span class="tg">${tg}</span>${label}</span>
+      <span class="bar"><i style="width:${(share * 100).toFixed(1)}%"></i></span>
+      <span class="num">${fmt(n.s)}</span><span class="num dim">${pct(n.s, n.p ? n.p.s : n.s)}</span>`);
+    if (n === selected) r.classList.add("sel");
+    r.node = n;
+    frag.append(r);
+    if (n.c && n.o) {
+      const lim = n.lim || 200;
+      for (const c of n.c.slice(0, lim)) walk(c, depth + 1);
+      if (n.c.length > lim) {
+        const more = row(`<span class="name dim" style="padding-left:${(depth + 1) * 14 + 14}px">… ${n.c.length - lim} autres éléments (cliquer pour afficher)</span>`);
+        more.onclick = () => { n.lim = lim + 500; buildTree(); };
+        frag.append(more);
+      }
+    }
+  })(root, 0);
+  box.append(frag);
+  box.scrollTop = keep;
+}
+
+$("#tree").addEventListener("click", ev => {
+  const r = ev.target.closest(".r"); if (!r || !r.node) return;
+  const n = r.node;
+  if (ev.target.classList.contains("tg") || ev.detail === 2) { n.o = !n.o; }
+  select(n, false);
+});
+
+function buildBig() {
+  const biggest = [...leaves(root)].filter(f => !f.x).sort((a, b) => b.s - a.s).slice(0, 200);
+  const box = $("#big"); box.textContent = "";
+  const prefix = root.n.replace(/\/$/, "").length + 1;
+  for (const f of biggest) {
+    const r = row(`<span class="name" title="${esc(pathOf(f))}">${esc(pathOf(f).slice(prefix))}</span>
+      <span class="num">${fmt(f.s)}</span>`);
+    r.node = f;
+    r.onclick = () => select(f, false);
+    box.append(r);
+  }
+}
+
+document.querySelectorAll("[data-tab]").forEach(b => b.onclick = () => {
+  document.querySelectorAll("[data-tab]").forEach(x => x.classList.toggle("on", x === b));
+  $("#tree").hidden = b.dataset.tab !== "tree";
+  $("#big").hidden = b.dataset.tab !== "big";
+});
+
+// ---------- Sélection ----------
+function select(n, fromMap) {
+  selected = n;
+  for (let m = n.p; m; m = m.p) m.o = true;
+  if (!isUnder(n, viewRoot)) { viewRoot = root; render(); }
+  buildTree();
+  document.querySelectorAll("#big .r").forEach(r => r.classList.toggle("sel", r.node === n));
+  if (fromMap || !$("#tree").hidden) {
+    const r = [...$("#tree").children].find(r => r.node === n);
+    if (r) r.scrollIntoView({ block: "nearest" });
+  }
+  updateBoxes(); setTargets([targetOf(n)]);
+  $("#status").textContent = `${pathOf(n)} — ${fmt(n.s)}`;
+}
+const isUnder = (n, anc) => { for (let m = n; m; m = m.p) if (m === anc) return true; return false; };
+
+async function copyText(text) {
+  try { await navigator.clipboard.writeText(text); } catch {
+    // WebKitGTK peut refuser l'API Clipboard : repli sur l'ancienne méthode
+    const t = document.createElement("textarea"); t.value = text; document.body.append(t);
+    t.select(); document.execCommand("copy"); t.remove();
+  }
+  $("#status").textContent = "Copié : " + text.replace(/\n/g, " · ");
+}
+$("#bRescan").onclick = () => scan(root.n);
+
+// ---------- Treemap ----------
+// Treemap « squarifié » (Bruls et al.) + ombrage en coussins (van Wijk), comme WinDirStat.
+const CUSHION_H = 0.38, CUSHION_F = 0.91, IA = 0.2, IS = 0.9;
+const L = (() => { const v = [-1, -1, 10], k = Math.hypot(...v); return v.map(x => x / k); })();
+
+function squarify(kids, x, y, w, h, total) {
+  const out = [], scale = (w * h) / total;
+  let i = 0;
+  while (i < kids.length) {
+    const vertical = w >= h, side = vertical ? h : w;
+    if (!(side > 0)) {
+      // Plus de place (arrondis flottants) : rectangles vides plutôt que des NaN/Infinity
+      while (out.length < kids.length) out.push([x, y, 0, 0]);
+      break;
+    }
+    const amax = kids[i].s * scale;
+    let sum = 0, j = i, worst = Infinity;
+    while (j < kids.length) {
+      const a = kids[j].s * scale, ns = sum + a;
+      const r = Math.max(side * side * amax / (ns * ns), (ns * ns) / (side * side * a));
+      if (r > worst) break;
+      worst = r; sum = ns; j++;
+    }
+    const thick = sum / side;
+    let off = 0;
+    for (let k = i; k < j; k++) {
+      const len = kids[k].s * scale / thick;
+      out.push(vertical ? [x, y + off, thick, len] : [x + off, y, len, thick]);
+      off += len;
+    }
+    if (vertical) { x += thick; w -= thick; } else { y += thick; h -= thick; }
+    i = j;
+  }
+  return out;
+}
+
+function ridge(a, b, h, s, i) {
+  if (b - a <= 0) return;
+  s[i] += 4 * h * (b + a) / (b - a);
+  s[i + 1] -= 4 * h / (b - a);
+}
+
+function draw(n, x, y, w, h, s, ht, buf, W) {
+  n.r = [x, y, w, h]; n.g = gen;
+  s = s.slice();
+  ridge(x, x + w, ht, s, 0);
+  ridge(y, y + h, ht, s, 2);
+  const kids = n.c ? n.c.filter(c => c.s > 0) : [];
+  if (kids.length && (w >= 2 && h >= 2)) {
+    const total = kids.reduce((a, c) => a + c.s, 0);
+    const rects = squarify(kids, x, y, w, h, total);
+    kids.forEach((c, k) => draw(c, ...rects[k], s, ht * CUSHION_F, buf, W));
+  } else {
+    paint(colorOf(n), x, y, w, h, s, buf, W);
+  }
+}
+
+function paint(col, x, y, w, h, s, buf, W) {
+  // Bornés au canevas : sinon un pixel hors cadre déborde sur la ligne suivante
+  const H = buf.length / (4 * W);
+  const x0 = Math.max(0, Math.round(x)), x1 = Math.min(W, Math.round(x + w));
+  const y0 = Math.max(0, Math.round(y)), y1 = Math.min(H, Math.round(y + h));
+  for (let py = y0; py < y1; py++) {
+    const ny = -(2 * s[3] * (py + 0.5) + s[2]);
+    let o = (py * W + x0) * 4;
+    for (let px = x0; px < x1; px++) {
+      const nx = -(2 * s[1] * (px + 0.5) + s[0]);
+      const cos = (nx * L[0] + ny * L[1] + L[2]) / Math.sqrt(nx * nx + ny * ny + 1);
+      const k = IA + IS * Math.max(0, cos);
+      buf[o] = col[0] * k; buf[o + 1] = col[1] * k; buf[o + 2] = col[2] * k; buf[o + 3] = 255;
+      o += 4;
+    }
+  }
+}
+
+function render() {
+  const cv = $("#map"), ov = $("#over");
+  const W = cv.clientWidth, H = cv.clientHeight;
+  if (!W || !H || !root) return;
+  cv.width = ov.width = W; cv.height = ov.height = H;
+  const ctx = cv.getContext("2d"), img = ctx.createImageData(W, H);
+  gen++;
+  if (viewRoot.s > 0) draw(viewRoot, 0, 0, W, H, [0, 0, 0, 0], CUSHION_H, img.data, W);
+  ctx.putImageData(img, 0, 0);
+  mapRect = null;
+  buildCrumbs(); drawHighlight(); updateBoxes();
+}
+
+function hit(px, py) {
+  let n = viewRoot;
+  outer: while (n.c) {
+    for (const c of n.c) {
+      if (c.g !== gen) continue;
+      const [x, y, w, h] = c.r;
+      if (px >= x && px < x + w && py >= y && py < y + h) { n = c; continue outer; }
+    }
+    break;
+  }
+  return n;
+}
+
+// Le canevas superposé ne sert qu'au surlignage (redessiné au clic, pas au survol).
+function drawHighlight() {
+  const ov = $("#over"), ctx = ov.getContext("2d");
+  ctx.clearRect(0, 0, ov.width, ov.height);
+  if (!hi || !root) return;
+  ctx.fillStyle = "rgba(255,255,255,.55)";
+  for (const f of leaves(viewRoot)) if (f.g === gen && f[hi.kind] === hi.value) ctx.fillRect(...f.r);
+}
+
+// Contours de survol et de sélection : de simples div déplacées, sans redessiner de pixels.
+function placeBox(el, n) {
+  if (!n || n.g !== gen || !isUnder(n, viewRoot)) { el.style.display = "none"; return; }
+  const [x, y, w, h] = n.r;
+  el.style.display = "block";
+  el.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px)`;
+  el.style.width = Math.max(Math.round(w), 2) + "px";
+  el.style.height = Math.max(Math.round(h), 2) + "px";
+}
+function updateBoxes() {
+  placeBox($("#hoverBox"), hovered && hovered.p);
+  placeBox($("#selBox"), selected);
+}
+
+function buildCrumbs() {
+  const c = $("#crumbs"); c.textContent = "";
+  const chain = []; for (let m = viewRoot; m; m = m.p) chain.unshift(m);
+  chain.forEach((m, i) => {
+    if (i) c.append(" / ");
+    const a = document.createElement("a"); a.textContent = m.n;
+    a.onclick = () => { viewRoot = m; render(); };
+    c.append(a);
+  });
+  const hint = document.createElement("span"); hint.className = "hint";
+  hint.textContent = "clic : sélectionner · double-clic : zoomer · Échap : dézoomer";
+  c.append(hint);
+}
+
+// Survol : la souris peut envoyer 1000 évènements/s, on ne traite que le dernier, une fois
+// par image affichée. L'infobulle n'est réécrite (et mesurée) que si l'élément change.
+const map = $("#over"), tip = $("#tip");
+let mapRect = null, mouse = null, frame = 0, tipW = 0, tipH = 0;
+map.addEventListener("mousemove", ev => {
+  mouse = ev;
+  if (!frame) frame = requestAnimationFrame(onHover);
+});
+function onHover() {
+  frame = 0;
+  if (!root || !mouse) return;
+  const r = mapRect || (mapRect = map.getBoundingClientRect());
+  const n = hit(mouse.clientX - r.left, mouse.clientY - r.top);
+  if (n !== hovered) {
+    hovered = n;
+    placeBox($("#hoverBox"), n.p);
+    const cat = n.cat ? ` · <span class="dim">${esc(n.cat)}</span>` : "";
+    tip.innerHTML = `<b>${esc(n.n)}</b><br><span class="dim">${esc(pathOf(n))}</span><br>${fmt(n.s)}${cat}`;
+    tip.style.display = "block";
+    tipW = tip.offsetWidth; tipH = tip.offsetHeight;
+  }
+  const x = Math.min(mouse.clientX + 14, innerWidth - tipW - 8);
+  const y = mouse.clientY + 16 + tipH > innerHeight ? mouse.clientY - tipH - 10 : mouse.clientY + 16;
+  tip.style.transform = `translate(${x}px, ${y}px)`;
+}
+map.addEventListener("mouseleave", () => {
+  mouse = null; hovered = null; tip.style.display = "none"; placeBox($("#hoverBox"), null);
+});
+addEventListener("scroll", () => { mapRect = null; }, true);
+map.addEventListener("click", ev => { if (root) select(hit(ev.offsetX, ev.offsetY), true); });
+map.addEventListener("dblclick", ev => {
+  if (!root) return;
+  const n = hit(ev.offsetX, ev.offsetY);
+  const dir = n.c ? n : n.p;
+  if (dir && dir !== viewRoot) { viewRoot = dir; render(); }
+});
+addEventListener("keydown", ev => {
+  if (ev.key !== "Escape" || !root || !$("#modal").hidden) return;
+  if (!$("#menu").hidden) hideMenu();
+  else if (!$("#picker").hidden) $("#picker").hidden = true;
+  else if (!$("#catview").hidden) { checked.clear(); setTargets([]); buildCatFiles(); }
+  else if (viewRoot.p) { viewRoot = viewRoot.p; render(); }
+});
+
+// Redimensionnement (fenêtre + séparateur)
+let rt; new ResizeObserver(() => { clearTimeout(rt); rt = setTimeout(render, 120); }).observe($("#mapwrap"));
+$("#split").addEventListener("mousedown", ev => {
+  ev.preventDefault();
+  const move = e => document.body.style.setProperty("--top",
+    Math.max(80, Math.min(innerHeight - 160, e.clientY - $("#top").offsetTop)) + "px");
+  addEventListener("mousemove", move);
+  addEventListener("mouseup", () => removeEventListener("mousemove", move), { once: true });
+});
+
+// ---------- Sélection et actions ----------
+const rootPath = () => root.n.replace(/\/$/, "");
+const parentPath = p => p.slice(0, p.lastIndexOf("/")) || "/";
+const baseName = p => p.slice(p.lastIndexOf("/") + 1);
+const insideRoot = p => p === root.n || p.startsWith(rootPath() + "/");
+// Dossier d'un fichier, relatif au dossier analysé : « Photos/Vacances » plutôt que le chemin complet
+const where = p => { const d = parentPath(p); return d === rootPath() || d === root.n ? "(racine)" : d.slice(rootPath().length + 1); };
+
+// Un bloc « petits éléments » ou la racine ne sont pas des cibles d'action
+const targetOf = n => !n || n.x || n === root ? null : { path: pathOf(n), name: n.n, size: n.s, node: n };
+
+function setTargets(list) {
+  targets = list.filter(Boolean);
+  updateButtons();
+}
+
+const SINGLE_ONLY = new Set(["open", "show", "rename"]);
+const opDisabled = op => !targets.length || (SINGLE_ONLY.has(op) && targets.length !== 1);
+
+function updateButtons() {
+  const size = targets.reduce((a, t) => a + t.size, 0);
+  $("#selInfo").textContent = !targets.length ? "Aucune sélection — clic droit sur un élément pour ses actions"
+    : targets.length === 1 ? `${targets[0].name} — ${fmt(size)}` : `${targets.length} éléments — ${fmt(size)}`;
+  document.querySelectorAll("#actions [data-op]").forEach(b => { b.disabled = opDisabled(b.dataset.op); });
+}
+
+function refreshAll() {
+  $("#info").textContent = `${root.n} — ${fmt(root.s)} · ${files(scanInfo.files)}` +
+    ` · analysé en ${scanInfo.seconds} s` + (scanInfo.errors ? ` · ${scanInfo.errors} accès refusés` : "");
+  buildSide(); buildTree(); buildBig(); render(); buildCatView(); updateButtons();
+}
+
+// ---------- Dialogues ----------
+function ask({ title, html, input, ok = "OK", danger = false, cancel = true }) {
+  return new Promise(resolve => {
+    const m = $("#modal"), inp = m.querySelector("input");
+    const okB = m.querySelector(".ok"), noB = m.querySelector(".cancel");
+    m.querySelector("h3").textContent = title;
+    m.querySelector(".msg").innerHTML = html;
+    inp.hidden = input === undefined;
+    inp.value = input ?? "";
+    okB.textContent = ok;
+    okB.classList.toggle("danger", danger);
+    noB.hidden = !cancel;
+    m.hidden = false;
+    const done = v => { m.hidden = true; okB.onclick = noB.onclick = m.onkeydown = null; resolve(v); };
+    okB.onclick = () => done(input === undefined ? true : inp.value.trim());
+    noB.onclick = () => done(null);
+    m.onkeydown = ev => {
+      ev.stopPropagation();
+      if (ev.key === "Escape") done(null);
+      // Entrée ne valide que la saisie ; sinon c'est le bouton qui a le focus qui agit
+      else if (ev.key === "Enter" && ev.target === inp) done(inp.value.trim());
+    };
+    if (input !== undefined) {
+      inp.focus();
+      const dot = inp.value.lastIndexOf(".");
+      inp.setSelectionRange(0, dot > 0 ? dot : inp.value.length);  // sélectionne le nom sans l'extension
+    } else {
+      (danger ? noB : okB).focus();  // action dangereuse : « Annuler » par défaut
+    }
+  });
+}
+
+function busy(on, text) {
+  $("#loading").style.display = on ? "grid" : "none";
+  if (text) $("#loading").textContent = text;
+}
+
+// ---------- Opérations ----------
+async function runOp(op) {
+  const list = targets.slice();
+  if (opDisabled(op)) return;
+  const total = list.reduce((a, t) => a + t.size, 0);
+  const many = list.length > 1;
+  const what = many ? `${list.length} éléments (${fmt(total)})` : `« ${esc(list[0].name)} » (${fmt(total)})`;
+  if (op === "copy") return copyText(list.map(t => t.path).join("\n"));
+  if (op === "show") return post("/api/open", { path: list[0].path });
+  const extra = {};
+  if (op === "trash") {
+    if (!await ask({ title: "Mettre à la corbeille ?", ok: "Mettre à la corbeille",
+      html: `${what} ${many ? "iront" : "ira"} dans la corbeille. Tu pourras ${many ? "les" : "le"} restaurer depuis Dolphin.` })) return;
+  } else if (op === "delete") {
+    if (!await ask({ title: "Supprimer définitivement ?", ok: "Supprimer définitivement", danger: true,
+      html: `${what} ${many ? "seront <b>supprimés" : "sera <b>supprimé"} définitivement</b>, sans passer par la corbeille.<br>Impossible d'annuler.` })) return;
+  } else if (op === "rename") {
+    const name = await ask({ title: "Renommer", html: `<span class="dim">${esc(list[0].path)}</span>`,
+      input: list[0].name, ok: "Renommer" });
+    if (!name || name === list[0].name) return;
+    extra.name = name;
+  } else if (op === "move") {
+    const { path: dest } = await (await post("/api/pick", { title: "Déplacer vers…", start: parentPath(list[0].path) })).json();
+    if (!dest) return;
+    if (!await ask({ title: "Déplacer ?", ok: "Déplacer", html: `${what}<br>vers <b>${esc(dest)}</b>` })) return;
+    extra.dest = dest;
+  }
+  busy(true, op === "move" ? "Déplacement en cours…" : "Opération en cours…");
+  let results;
+  try {
+    const r = await post("/api/fileop", { op, paths: list.map(t => t.path), ...extra });
+    if (!r.ok) throw new Error(await r.text() || `erreur ${r.status}`);
+    results = (await r.json()).results;
+  } catch (e) {
+    results = list.map(t => ({ path: t.path, ok: false, error: e.message }));
+  } finally {
+    busy(false);
+  }
+  if (op === "open") return;
+  for (const r of results) if (r.ok) applyChange(op, list.find(t => t.path === r.path), r.newPath);
+  const failed = results.filter(r => !r.ok), okCount = results.length - failed.length;
+  const verb = { trash: "mis à la corbeille", delete: "supprimé(s)", move: "déplacé(s)", rename: "renommé" }[op];
+  $("#status").textContent = `${okCount} élément(s) ${verb}` + (failed.length ? ` · ${failed.length} échec(s)` : "");
+  if (okCount) {
+    selected = hovered = null;
+    checked.clear();
+    targets = [];
+    refreshAll();
+  }
+  if (failed.length) await ask({ title: "Certaines opérations ont échoué", cancel: false,
+    html: failed.map(f => `<div><b>${esc(f.path)}</b><br><span class="dim">${esc(f.error || "erreur")}</span></div>`).join("") });
+}
+
+// ---------- Mise à jour de l'arbre sans réanalyse ----------
+// locate() renvoie le nœud exact s'il est dans l'arbre, sinon le dossier connu le plus profond
+// qui le contient (les petits éléments sont fusionnés dans des blocs « ‹N petits éléments› »).
+function locate(path) {
+  if (!insideRoot(path)) return { node: null, deepest: null };
+  let n = root;
+  const parts = path === root.n ? [] : path.slice(rootPath().length + 1).split("/");
+  for (const part of parts) {
+    const c = n.c && n.c.find(k => !k.x && k.n === part);
+    if (!c) return { node: null, deepest: n };
+    n = c;
+  }
+  return { node: n, deepest: n.p };
+}
+const addSize = (n, delta) => { for (let m = n; m; m = m.p) m.s += delta; };
+const smallLabel = k => k === 1 ? "‹1 petit élément›" : `‹${k} petits éléments›`;
+
+function detach(n) {
+  addSize(n.p, -n.s);
+  n.p.c.splice(n.p.c.indexOf(n), 1);
+  n.p = null;
+}
+function attach(n, parent) {
+  n.p = parent;
+  (parent.c ||= []).push(n);
+  parent.c.sort((a, b) => b.s - a.s);
+  addSize(parent, n.s);
+}
+// Taille d'un élément non représenté : on la retire / l'ajoute au bloc des petits éléments
+function shiftSmall(dir, delta) {
+  addSize(dir, delta);
+  let x = dir.c && dir.c.find(k => k.x);
+  if (!x && delta > 0) { x = { n: smallLabel(1), s: 0, x: 1, p: dir, cat: null }; dir.c.push(x); }
+  if (x) x.s = Math.max(0, x.s + delta);
+}
+
+// Les totaux par catégorie et par extension suivent les suppressions
+function countStats(items, sign) {
+  for (const it of items) {
+    const c = catList.find(k => k.c === it.cat);
+    if (c) { c.s += sign * it.s; c.n += sign * it.count; }
+    const e = it.e && extList.find(k => k.e === it.e);
+    if (e) { e.s += sign * it.s; e.n += sign * it.count; }
+  }
+}
+
+function forgetCatFiles(path) {
+  for (const k in catFiles) catFiles[k] = catFiles[k].filter(([p]) => p !== path && !p.startsWith(path + "/"));
+}
+function renameCatFiles(from, to) {
+  for (const k in catFiles) {
+    catFiles[k] = catFiles[k].map(([p, s]) => [p === from || p.startsWith(from + "/") ? to + p.slice(from.length) : p, s]);
+  }
+}
+
+function applyChange(op, t, newPath) {
+  const { node, deepest } = locate(t.path);
+  if (op === "trash" || op === "delete" || (op === "move" && !insideRoot(newPath))) {
+    if (node) {
+      countStats([...leaves(node)].map(f => ({ cat: f.cat, e: f.x ? null : f.e, s: f.s, count: f.x || 1 })), -1);
+      detach(node);
+    } else if (deepest) {
+      countStats([{ cat: t.cat, e: extOf(t.name), s: t.size, count: 1 }], -1);
+      shiftSmall(deepest, -t.size);
+    }
+    forgetCatFiles(t.path);
+  } else if (op === "move") {
+    // Déplacement à l'intérieur de l'analyse : le total ne change pas, seule la place change
+    const dest = locate(newPath.slice(0, newPath.lastIndexOf("/")) || "/");
+    const target = dest.node || dest.deepest;
+    if (node) {
+      detach(node);
+      node.n = baseName(newPath);
+      if (dest.node && dest.node.c) attach(node, dest.node); else shiftSmall(target, node.s);
+    } else if (deepest) {
+      shiftSmall(deepest, -t.size);
+      shiftSmall(target, t.size);
+    }
+    renameCatFiles(t.path, newPath);
+  } else if (op === "rename") {
+    if (node) {
+      node.n = baseName(newPath);
+      if (!node.c) node.e = extOf(node.n);
+    }
+    renameCatFiles(t.path, newPath);
+  }
+}
+
+// ---------- Vue Catégories ----------
+const THUMB_EXT = new Set(["jpg", "jpeg", "png", "gif", "webp", "bmp", "tif", "tiff", "avif"]);
+const canThumb = ext => THUMB_EXT.has(ext) || catByExt[ext] === "Vidéos";
+
+function buildCatView() {
+  if (!root || $("#catview").hidden) return;
+  const cats = catList.filter(c => c.n > 0);
+  if (!cats.some(c => c.c === curCat)) curCat = cats.length ? cats[0].c : null;
+  $("#catstack").innerHTML = cats.map(it =>
+    `<i style="flex:${it.s} 0 0;background:rgb(${catColor[it.c] || OTHER})" title="${esc(it.c)} — ${fmt(it.s)}"></i>`).join("");
+  const box = $("#cards");
+  box.textContent = "";
+  for (const it of cats) {
+    const b = document.createElement("button");
+    b.className = "card" + (it.c === curCat ? " on" : "");
+    b.style.setProperty("--c", `rgb(${catColor[it.c] || OTHER})`);
+    b.innerHTML = `<b>${esc(it.c)}</b><span class="big">${fmt(it.s)}</span>
+      <span class="dim">${pct(it.s, root.s)} · ${files(it.n)}</span>
+      <span class="dim">${esc(it.top.join(", "))}</span>`;
+    b.onclick = () => { curCat = it.c; checked.clear(); setTargets([]); buildCatView(); };
+    box.append(b);
+  }
+  buildCatFiles();
+}
+
+function buildCatFiles() {
+  const list = catFiles[curCat] || [], info = catList.find(c => c.c === curCat);
+  $("#catTitle").textContent = curCat || "";
+  $("#catNote").textContent = !info ? "" : list.length < info.n
+    ? `les ${list.length} plus gros sur ${files(info.n)}` : files(list.length);
+  const box = $("#catList");
+  box.textContent = "";
+  if (!list.length) { box.innerHTML = `<div class="empty">Aucun fichier dans cette catégorie.</div>`; return; }
+  const color = `rgb(${catColor[curCat] || OTHER})`, max = list[0][1];
+  const frag = document.createDocumentFragment();
+  for (const [path, size] of list) {
+    const name = baseName(path), ext = extOf(name), on = checked.has(path);
+    const r = document.createElement("div");
+    r.className = "frow" + (on ? " on" : "");
+    r.style.setProperty("--c", color);
+    r.innerHTML = `<input type="checkbox"${on ? " checked" : ""}>` +
+      (canThumb(ext) ? `<img class="thumb" loading="lazy" alt="" data-ext="${esc(ext)}" src="/api/thumb?path=${encodeURIComponent(path)}">`
+                     : `<span class="thumb">${ext === "(aucune)" ? "" : esc(ext)}</span>`) +
+      `<div><div class="nm1" title="${esc(path)}">${esc(name)}</div><div class="where">${esc(where(path))}</div></div>
+       <div class="sz">${fmt(size)}<div class="szbar" style="width:${(100 * size / max).toFixed(1)}%"></div></div>`;
+    r.target = { path, name, size, cat: curCat };
+    frag.append(r);
+  }
+  box.append(frag);
+  $("#catAll").checked = list.every(([p]) => checked.has(p));
+}
+
+function toggleRow(r, on = !checked.has(r.target.path)) {
+  if (on) checked.set(r.target.path, r.target); else checked.delete(r.target.path);
+  r.classList.toggle("on", on);
+  r.querySelector("input").checked = on;
+}
+const catList_ = $("#catList");
+catList_.addEventListener("click", ev => {
+  const r = ev.target.closest(".frow"); if (!r) return;
+  toggleRow(r);
+  setTargets([...checked.values()]);
+});
+catList_.addEventListener("dblclick", ev => {
+  const r = ev.target.closest(".frow"); if (!r) return;
+  setTargets([r.target]); runOp("open");
+});
+catList_.addEventListener("contextmenu", ev => {
+  const r = ev.target.closest(".frow"); if (!r) return;
+  ev.preventDefault();
+  if (!checked.has(r.target.path)) {   // clic droit hors sélection : on agit sur cette ligne seule
+    checked.clear();
+    catList_.querySelectorAll(".frow.on").forEach(x => toggleRow(x, false));
+    toggleRow(r, true);
+  }
+  setTargets([...checked.values()]);
+  showMenu(ev.clientX, ev.clientY);
+});
+// Miniature impossible : on affiche l'extension à la place
+catList_.addEventListener("error", ev => {
+  if (ev.target.tagName !== "IMG") return;
+  const s = document.createElement("span");
+  s.className = "thumb"; s.textContent = ev.target.dataset.ext;
+  ev.target.replaceWith(s);
+}, true);
+$("#catAll").onchange = ev => {
+  catList_.querySelectorAll(".frow").forEach(r => toggleRow(r, ev.target.checked));
+  setTargets([...checked.values()]);
+};
+
+// ---------- Bascule Carte / Catégories ----------
+document.querySelectorAll("[data-view]").forEach(b => b.onclick = () => {
+  document.querySelectorAll("[data-view]").forEach(x => x.classList.toggle("on", x === b));
+  const cat = b.dataset.view === "cat";
+  $("#mapview").hidden = cat;
+  $("#catview").hidden = !cat;
+  checked.clear();
+  setTargets(cat ? [] : [targetOf(selected)]);
+  if (cat) buildCatView(); else render();
+});
+
+// ---------- Menu contextuel ----------
+const MENU = [["open", "Ouvrir"], ["show", "Afficher dans le dossier"], ["copy", "Copier le chemin"], null,
+  ["rename", "Renommer…  (F2)"], ["move", "Déplacer…"], null,
+  ["trash", "Mettre à la corbeille  (Suppr)"], ["delete", "Supprimer définitivement  (Maj+Suppr)"]];
+function showMenu(x, y) {
+  if (!targets.length) return;
+  const m = $("#menu");
+  m.innerHTML = MENU.map(it => !it ? "<hr>" :
+    `<button data-op="${it[0]}"${opDisabled(it[0]) ? " disabled" : ""}${it[0] === "delete" ? ' class="danger"' : ""}>${it[1]}</button>`).join("");
+  m.hidden = false;
+  m.style.left = Math.min(x, innerWidth - m.offsetWidth - 8) + "px";
+  m.style.top = Math.min(y, innerHeight - m.offsetHeight - 8) + "px";
+}
+const hideMenu = () => { $("#menu").hidden = true; };
+addEventListener("mousedown", ev => { if (!ev.target.closest("#menu")) hideMenu(); });
+addEventListener("blur", hideMenu);
+document.addEventListener("click", ev => {
+  const b = ev.target.closest("[data-op]");
+  if (!b || b.disabled) return;
+  hideMenu();
+  runOp(b.dataset.op);
+});
+
+map.addEventListener("contextmenu", ev => {
+  ev.preventDefault();
+  if (!root) return;
+  const r = mapRect || (mapRect = map.getBoundingClientRect());
+  select(hit(ev.clientX - r.left, ev.clientY - r.top), true);
+  showMenu(ev.clientX, ev.clientY);
+});
+for (const id of ["#tree", "#big"]) {
+  $(id).addEventListener("contextmenu", ev => {
+    const r = ev.target.closest(".r"); if (!r || !r.node) return;
+    ev.preventDefault();
+    select(r.node, false);
+    showMenu(ev.clientX, ev.clientY);
+  });
+}
+
+// Raccourcis : Suppr → corbeille, Maj+Suppr → suppression définitive, F2 → renommer
+addEventListener("keydown", ev => {
+  if (!root || !$("#modal").hidden || ev.target.tagName === "INPUT" && ev.target.type !== "checkbox") return;
+  if (ev.key === "Delete") { ev.preventDefault(); runOp(ev.shiftKey ? "delete" : "trash"); }
+  else if (ev.key === "F2") { ev.preventDefault(); runOp("rename"); }
+});
+
+start();
+</script>
+</body>
+</html>

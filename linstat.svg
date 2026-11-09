@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <defs>
+    <radialGradient id="cushion" cx="35%" cy="30%" r="85%">
+      <stop offset="0" stop-color="#fff" stop-opacity=".55"/>
+      <stop offset=".55" stop-color="#fff" stop-opacity="0"/>
+      <stop offset="1" stop-color="#000" stop-opacity=".45"/>
+    </radialGradient>
+    <clipPath id="round"><rect x="8" y="8" width="112" height="112" rx="22"/></clipPath>
+  </defs>
+  <rect x="8" y="8" width="112" height="112" rx="22" fill="#1c1d20"/>
+  <g clip-path="url(#round)" stroke="#1c1d20" stroke-width="2">
+    <rect x="8" y="8" width="62" height="70" fill="#4285f4"/>
+    <rect x="8" y="78" width="62" height="42" fill="#34a853"/>
+    <rect x="70" y="8" width="50" height="40" fill="#ea4335"/>
+    <rect x="70" y="48" width="28" height="42" fill="#fbbc05"/>
+    <rect x="98" y="48" width="22" height="22" fill="#00bcd4"/>
+    <rect x="98" y="70" width="22" height="20" fill="#ab47bc"/>
+    <rect x="70" y="90" width="30" height="30" fill="#ff7043"/>
+    <rect x="100" y="90" width="20" height="30" fill="#969696"/>
+  </g>
+  <g clip-path="url(#round)" fill="url(#cushion)">
+    <rect x="8" y="8" width="62" height="70"/>
+    <rect x="8" y="78" width="62" height="42"/>
+    <rect x="70" y="8" width="50" height="40"/>
+    <rect x="70" y="48" width="28" height="42"/>
+    <rect x="98" y="48" width="22" height="22"/>
+    <rect x="98" y="70" width="22" height="20"/>
+    <rect x="70" y="90" width="30" height="30"/>
+    <rect x="100" y="90" width="20" height="30"/>
+  </g>
+</svg>
