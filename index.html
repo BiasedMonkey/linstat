@@ -19,7 +19,31 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg);
 body { display: grid; grid-template-rows: auto auto 1fr auto; height: 100vh; }
 main { min-height: 0; }
 #mapview { display: grid; grid-template-rows: var(--top, 42%) 6px auto 1fr; }
-#mapview[hidden], #catview[hidden] { display: none; }
+#mapview[hidden], #catview[hidden], #dupview[hidden] { display: none; }
+#dupview { overflow: auto; padding: 12px; display: flex; flex-direction: column; gap: 12px; }
+.duphead { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; background: var(--panel);
+  border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
+.duphead select { font: inherit; color: var(--fg); background: var(--row); border: 1px solid var(--line);
+  border-radius: 6px; padding: 3px 6px; }
+.duphead .note { flex-basis: 100%; color: var(--muted); font-size: 12px; }
+.dupsum { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.dupsum .big { font-size: 18px; font-weight: 700; background: var(--bar); -webkit-background-clip: text;
+  background-clip: text; color: transparent; margin-right: 8px; }
+.dgroup { background: color-mix(in srgb, var(--c) 8%, var(--panel)); border: 1px solid var(--line);
+  border-left: 4px solid var(--c); border-radius: 10px; overflow: hidden; }
+.dghead { display: grid; grid-template-columns: 52px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 8px 12px; }
+.dghead .nm1 { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dghead .gain { font-weight: 700; color: var(--accent); white-space: nowrap; }
+.drow { display: grid; grid-template-columns: 18px minmax(0, 1fr) 120px; gap: 10px; align-items: center;
+  padding: 3px 12px 3px 74px; cursor: default; }
+.drow:hover { background: var(--row); }
+.drow.on { background: color-mix(in srgb, #ff5a5a 20%, transparent); }
+.drow.on .nm1 { text-decoration: line-through; text-decoration-color: #ff7070; }
+.drow .nm1, .drow .where { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.drow .where { color: var(--muted); font-size: 12px; }
+.drow .date { color: var(--muted); text-align: right; font-size: 12px; }
+.warn { background: color-mix(in srgb, #ff5a5a 18%, var(--panel)); border: 1px solid #ff707088; border-radius: 8px;
+  padding: 8px 10px; margin-bottom: 10px; }
 header { display: flex; gap: 10px; align-items: center; padding: 8px 12px;
   background: var(--head); border-bottom: 1px solid var(--line); min-width: 0; }
 header h1, #picker h2 { background: var(--bar); -webkit-background-clip: text; background-clip: text;
@@ -170,6 +194,7 @@ button.primary.danger { background: #d93b3b; border-color: #d93b3b; color: #fff;
   <div class="seg">
     <button data-view="map" class="on">Carte</button>
     <button data-view="cat">Catégories</button>
+    <button data-view="dup">Doublons</button>
   </div>
   <span class="info" id="info">…</span>
   <button id="bTheme" title="Thème de couleurs">🎨</button>
@@ -212,6 +237,25 @@ button.primary.danger { background: #d93b3b; border-color: #d93b3b; color: #fff;
 <div id="crumbs"></div>
 <div id="mapwrap"><canvas id="map"></canvas><canvas id="over"></canvas>
   <div id="hoverBox" class="box"></div><div id="selBox" class="box"></div></div>
+</main>
+
+<main id="dupview" hidden>
+  <div class="duphead">
+    <label>Taille minimale
+      <select id="dupMin">
+        <option value="102400">100 Ko</option>
+        <option value="1048576" selected>1 Mo</option>
+        <option value="10485760">10 Mo</option>
+        <option value="104857600">100 Mo</option>
+      </select>
+    </label>
+    <label><input type="checkbox" id="dupSkip" checked> Ignorer jeux, programmes, code et caches</label>
+    <button id="bDup" class="primary">Chercher les doublons</button>
+    <span class="note">Fichiers au contenu strictement identique (comparé octet par octet via une empreinte BLAKE2).
+      Les copies à l'intérieur des jeux et des programmes sont normales : les supprimer pourrait les casser.</span>
+  </div>
+  <div id="dupSummary" class="dupsum"></div>
+  <div id="dupList"></div>
 </main>
 
 <main id="catview" hidden>
@@ -341,6 +385,7 @@ $("#bChange").onclick = showPicker;
 
 function apply(data) {
   root = viewRoot = data.tree; selected = hovered = hi = null;
+  dupData = null; dupChecked.clear();  // nouvelle analyse : anciens doublons périmés
   extList = data.exts.map(([e, s, n]) => ({ e, s, n }));
   catList = data.cats.map(([c, s, n, top]) => ({ c, s, n, top }));
   rawCatColor = data.catColors; catByExt = data.catByExt; catFiles = data.catFiles;
@@ -694,6 +739,7 @@ addEventListener("keydown", ev => {
   if (!$("#menu").hidden) hideMenu();
   else if (!$("#picker").hidden) $("#picker").hidden = true;
   else if (!$("#catview").hidden) { checked.clear(); setTargets([]); buildCatFiles(); }
+  else if (!$("#dupview").hidden) { dupChecked.clear(); setTargets([]); buildDupView(); }
   else if (viewRoot.p) { viewRoot = viewRoot.p; render(); }
 });
 
@@ -736,7 +782,7 @@ function updateButtons() {
 function refreshAll() {
   $("#info").textContent = `${root.n} — ${fmt(root.s)} · ${files(scanInfo.files)}` +
     ` · analysé en ${scanInfo.seconds} s` + (scanInfo.errors ? ` · ${scanInfo.errors} accès refusés` : "");
-  buildSide(); buildTree(); buildBig(); render(); buildCatView(); updateButtons();
+  buildSide(); buildTree(); buildBig(); render(); buildCatView(); buildDupView(); updateButtons();
 }
 
 // ---------- Dialogues ----------
@@ -786,12 +832,15 @@ async function runOp(op) {
   if (op === "copy") return copyText(list.map(t => t.path).join("\n"));
   if (op === "show") return post("/api/open", { path: list[0].path });
   const extra = {};
+  const lost = op === "trash" || op === "delete" ? allCopiesLost(list) : 0;
+  const warn = lost ? `<div class="warn">⚠ <b>Toutes les copies</b> de ${lost} fichier${lost > 1 ? "s" : ""} en double
+    seraient supprimées : il n'en resterait <b>aucun exemplaire</b>.</div>` : "";
   if (op === "trash") {
-    if (!await ask({ title: "Mettre à la corbeille ?", ok: "Mettre à la corbeille",
-      html: `${what} ${many ? "iront" : "ira"} dans la corbeille. Tu pourras ${many ? "les" : "le"} restaurer depuis Dolphin.` })) return;
+    if (!await ask({ title: "Mettre à la corbeille ?", ok: "Mettre à la corbeille", danger: !!lost,
+      html: `${warn}${what} ${many ? "iront" : "ira"} dans la corbeille. Tu pourras ${many ? "les" : "le"} restaurer depuis Dolphin.` })) return;
   } else if (op === "delete") {
     if (!await ask({ title: "Supprimer définitivement ?", ok: "Supprimer définitivement", danger: true,
-      html: `${what} ${many ? "seront <b>supprimés" : "sera <b>supprimé"} définitivement</b>, sans passer par la corbeille.<br>Impossible d'annuler.` })) return;
+      html: `${warn}${what} ${many ? "seront <b>supprimés" : "sera <b>supprimé"} définitivement</b>, sans passer par la corbeille.<br>Impossible d'annuler.` })) return;
   } else if (op === "rename") {
     const name = await ask({ title: "Renommer", html: `<span class="dim">${esc(list[0].path)}</span>`,
       input: list[0].name, ok: "Renommer" });
@@ -822,6 +871,7 @@ async function runOp(op) {
   if (okCount) {
     selected = hovered = null;
     checked.clear();
+    dupChecked.clear();
     targets = [];
     refreshAll();
   }
@@ -885,6 +935,7 @@ function renameCatFiles(from, to) {
 }
 
 function applyChange(op, t, newPath) {
+  dupChange(op, t.path, newPath);
   const { node, deepest } = locate(t.path);
   if (op === "trash" || op === "delete" || (op === "move" && !insideRoot(newPath))) {
     if (node) {
@@ -1007,15 +1058,17 @@ $("#catAll").onchange = ev => {
   setTargets([...checked.values()]);
 };
 
-// ---------- Bascule Carte / Catégories ----------
+// ---------- Bascule Carte / Catégories / Doublons ----------
 document.querySelectorAll("[data-view]").forEach(b => b.onclick = () => {
   document.querySelectorAll("[data-view]").forEach(x => x.classList.toggle("on", x === b));
-  const cat = b.dataset.view === "cat";
-  $("#mapview").hidden = cat;
-  $("#catview").hidden = !cat;
+  const v = b.dataset.view;
+  $("#mapview").hidden = v !== "map";
+  $("#catview").hidden = v !== "cat";
+  $("#dupview").hidden = v !== "dup";
   checked.clear();
-  setTargets(cat ? [] : [targetOf(selected)]);
-  if (cat) buildCatView(); else render();
+  dupChecked.clear();
+  setTargets(v === "map" ? [targetOf(selected)] : []);
+  if (v === "map") render(); else if (v === "cat") buildCatView(); else buildDupView();
 });
 
 // ---------- Menu contextuel ----------
@@ -1130,6 +1183,160 @@ $("#themes").addEventListener("click", ev => {
 addEventListener("mousedown", ev => {
   if (!ev.target.closest("#themes, #bTheme")) $("#themes").hidden = true;
 });
+
+// ---------- Doublons ----------
+let dupData = null, dupShown = 150;
+const dupChecked = new Map();  // chemin -> cible cochée
+const dupDate = m => new Date(m * 1000).toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" });
+const dupTarget = (f, g) => ({ path: f[0], name: baseName(f[0]), size: g.size, cat: f[2] });
+
+$("#bDup").onclick = async () => {
+  if (!root) return;
+  const ld = $("#loading");
+  ld.style.display = "grid"; ld.textContent = "Recherche des doublons…";
+  const poll = setInterval(async () => {
+    const p = await (await fetch("/api/dupprogress")).json();
+    if (p.total) ld.textContent = `Doublons — ${p.phase} : ${files(p.files)}, ${fmt(p.done)} / ${fmt(p.total)}` +
+      ` (${Math.floor(100 * p.done / p.total)} %)`;
+  }, 300);
+  try {
+    const r = await post("/api/duplicates", { minSize: +$("#dupMin").value, skip: $("#dupSkip").checked });
+    if (!r.ok) throw new Error(await r.text());
+    dupData = await r.json();
+    dupChecked.clear(); dupShown = 150;
+    setTargets([]);
+    buildDupView();
+  } catch (e) {
+    alert("Recherche impossible : " + e.message);
+  } finally {
+    clearInterval(poll); ld.style.display = "none";
+  }
+};
+
+// Ne garder qu'un exemplaire par groupe, selon une règle ; tous les autres sont cochés
+const KEEP = {
+  ancien: g => g.files[0],                        // les fichiers arrivent triés par date
+  recent: g => g.files[g.files.length - 1],
+  court: g => g.files.reduce((a, f) => f[0].length < a[0].length ? f : a),
+};
+function autoCheck(rule) {
+  dupChecked.clear();
+  if (rule) for (const g of dupData.groups) {
+    const keep = KEEP[rule](g);
+    for (const f of g.files) if (f !== keep) dupChecked.set(f[0], dupTarget(f, g));
+  }
+  setTargets([...dupChecked.values()]);
+  buildDupView();
+}
+
+function buildDupView() {
+  if (!root || $("#dupview").hidden) return;
+  const sum = $("#dupSummary"), box = $("#dupList");
+  if (!dupData) {
+    sum.innerHTML = "";
+    box.innerHTML = `<div class="empty">Lance la recherche pour trouver les fichiers en double dans ${esc(root.n)}.</div>`;
+    return;
+  }
+  const groups = dupData.groups;
+  if (!groups.length) {
+    sum.innerHTML = "";
+    box.innerHTML = `<div class="empty">Plus aucun doublon avec ces réglages. 🎉</div>`;
+    return;
+  }
+  const waste = groups.reduce((a, g) => a + g.size * (g.files.length - 1), 0);
+  const picked = [...dupChecked.values()].reduce((a, t) => a + t.size, 0);
+  sum.innerHTML = `<span class="big">${fmt(waste)} récupérables</span>
+    <span class="dim">${groups.length.toLocaleString("fr")} groupes${dupData.count > groups.length ? ` (sur ${dupData.count.toLocaleString("fr")})` : ""}
+    · cherché en ${dupData.seconds} s</span>
+    <span style="flex:1"></span>
+    <span class="dim">Ne garder que :</span>
+    <button data-keep="ancien">le plus ancien</button>
+    <button data-keep="recent">le plus récent</button>
+    <button data-keep="court">le chemin le plus court</button>
+    <button data-keep="">Tout décocher</button>
+    ${dupChecked.size ? `<span><b>${files(dupChecked.size)}</b> cochés · ${fmt(picked)}</span>` : ""}`;
+  sum.querySelectorAll("[data-keep]").forEach(b => b.onclick = () => autoCheck(b.dataset.keep));
+
+  const frag = document.createDocumentFragment();
+  for (const g of groups.slice(0, dupShown)) {
+    const first = g.files[0][0], name = baseName(first), ext = extOf(name);
+    const sec = document.createElement("section");
+    sec.className = "dgroup";
+    sec.style.setProperty("--c", `rgb(${catColor[g.files[0][2]] || OTHER})`);
+    sec.innerHTML = `<div class="dghead">` +
+      (canThumb(ext) ? `<img class="thumb" loading="lazy" alt="" data-ext="${esc(ext)}" src="/api/thumb?path=${encodeURIComponent(first)}">`
+                     : `<span class="thumb">${ext === "(aucune)" ? "" : esc(ext)}</span>`) +
+      `<div><div class="nm1">${esc(name)}</div>
+        <div class="dim">${g.files.length} copies × ${fmt(g.size)} · ${esc(g.files[0][2])}</div></div>
+      <span class="gain">${fmt(g.size * (g.files.length - 1))}</span></div>`;
+    for (const f of g.files) {
+      const on = dupChecked.has(f[0]);
+      const r = document.createElement("div");
+      r.className = "drow" + (on ? " on" : "");
+      r.innerHTML = `<input type="checkbox"${on ? " checked" : ""}>
+        <div><div class="nm1" title="${esc(f[0])}">${esc(baseName(f[0]))}</div><div class="where">${esc(where(f[0]))}</div></div>
+        <span class="date">${dupDate(f[1])}</span>`;
+      r.target = dupTarget(f, g);
+      sec.append(r);
+    }
+    frag.append(sec);
+  }
+  box.textContent = "";
+  box.append(frag);
+  if (groups.length > dupShown) {
+    const more = document.createElement("button");
+    more.textContent = `Afficher ${Math.min(150, groups.length - dupShown)} groupes de plus`;
+    more.onclick = () => { dupShown += 150; buildDupView(); };
+    box.append(more);
+  }
+}
+
+const dupList_ = $("#dupList");
+dupList_.addEventListener("click", ev => {
+  const r = ev.target.closest(".drow"); if (!r) return;
+  const on = !dupChecked.has(r.target.path);
+  if (on) dupChecked.set(r.target.path, r.target); else dupChecked.delete(r.target.path);
+  r.classList.toggle("on", on);
+  r.querySelector("input").checked = on;
+  setTargets([...dupChecked.values()]);
+});
+dupList_.addEventListener("dblclick", ev => {
+  const r = ev.target.closest(".drow"); if (!r) return;
+  setTargets([r.target]); runOp("open");
+});
+dupList_.addEventListener("contextmenu", ev => {
+  const r = ev.target.closest(".drow"); if (!r) return;
+  ev.preventDefault();
+  if (!dupChecked.has(r.target.path)) { dupChecked.clear(); dupChecked.set(r.target.path, r.target); buildDupView(); }
+  setTargets([...dupChecked.values()]);
+  showMenu(ev.clientX, ev.clientY);
+});
+dupList_.addEventListener("error", ev => {
+  if (ev.target.tagName !== "IMG") return;
+  const s = document.createElement("span");
+  s.className = "thumb"; s.textContent = ev.target.dataset.ext;
+  ev.target.replaceWith(s);
+}, true);
+
+// Garde-fou : combien de groupes perdraient TOUTES leurs copies avec cette sélection ?
+function allCopiesLost(list) {
+  if (!dupData) return 0;
+  const gone = list.map(t => t.path);
+  const covered = p => gone.some(g => p === g || p.startsWith(g + "/"));  // un dossier emporte son contenu
+  return dupData.groups.filter(g => g.files.every(f => covered(f[0]))).length;
+}
+
+// Les groupes suivent les suppressions, déplacements et renommages
+function dupChange(op, path, newPath) {
+  if (!dupData) return;
+  const gone = op === "trash" || op === "delete" || (op === "move" && !insideRoot(newPath));
+  for (const g of dupData.groups) {
+    g.files = g.files
+      .filter(f => !(gone && (f[0] === path || f[0].startsWith(path + "/"))))
+      .map(f => f[0] === path || f[0].startsWith(path + "/") ? [newPath + f[0].slice(path.length), f[1], f[2]] : f);
+  }
+  dupData.groups = dupData.groups.filter(g => g.files.length > 1);  // plus de doublon : groupe résolu
+}
 
 start();
 </script>

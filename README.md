@@ -23,6 +23,10 @@ et faire le ménage dans la foulée.
   disque, Code & dév., Caches, Corbeille… La carte se colore par catégorie ou par extension.
 - **Vue Catégories** : une carte par catégorie, puis ses 250 plus gros fichiers avec
   **miniatures** (images et vidéos) et cases à cocher pour agir sur plusieurs fichiers à la fois.
+- **Doublons** : fichiers au contenu strictement identique, regroupés et triés par place
+  récupérable. Un clic pour ne garder que le plus ancien, le plus récent ou celui au chemin
+  le plus court ; LinStat **avertit si une action effaçait toutes les copies** d'un fichier.
+  Par défaut, les jeux, programmes, code et caches sont ignorés (leurs copies internes sont normales).
 - **Gestion des fichiers** (barre d'actions ou clic droit) : ouvrir, afficher dans Dolphin,
   copier le chemin, renommer (F2), déplacer, **mettre à la corbeille** (Suppr) ou supprimer
   définitivement (Maj+Suppr). La carte et les totaux se mettent à jour sans réanalyse.
@@ -49,6 +53,13 @@ Dossier personnel de 2,4 millions de fichiers analysé en environ 3,5 s, disque 
   si bien qu'un énorme dossier se répartit lui aussi sur tous les cœurs.
 - **Mémoire sobre** : seul un fichier sur ~50 000 est assez gros pour apparaître sur la carte ;
   les autres sont seulement comptés, pas gardés un par un.
+
+## Doublons, sans tout relire
+
+Trois tamis, du moins cher au plus cher : même taille exacte (gratuit, l'analyse la connaît
+déjà), puis même empreinte des 64 premiers et 64 derniers Ko, puis même empreinte BLAKE2 du
+fichier entier pour les seuls survivants. Les liens physiques ne sont jamais pris pour des
+doublons : c'est le même fichier sous deux noms, en supprimer un ne libère rien.
 
 ## Catégories
 

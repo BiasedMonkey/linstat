@@ -23,7 +23,7 @@ import sys
 import threading
 import time
 import webbrowser
-from concurrent.futures import FIRST_COMPLETED, ProcessPoolExecutor, wait
+from concurrent.futures import FIRST_COMPLETED, ProcessPoolExecutor, ThreadPoolExecutor, wait
 from concurrent.futures.process import BrokenProcessPool
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -151,6 +151,8 @@ class Dir:
 BUDGET = 40_000
 # Fichiers listés par catégorie dans la vue « Catégories », même s'ils sont trop petits pour la carte
 TOP_PER_CAT = 250
+# Doublons : en dessous de cette taille, en trouver ne libère presque rien
+DUP_MIN = 100 * 1024
 CAT_NAMES = [name for name, *_ in CATEGORIES]
 
 _foreign = frozenset()
@@ -192,6 +194,7 @@ def scan_batch(paths, budget=BUDGET, known_total=0, floors=None):
     floors = floors or {}
     min_floor = min(floors.get(c, 0) for c in CAT_NAMES)
     tops = {}
+    dupc = []  # candidats doublons : (taille exacte, nom, dossier, catégorie, date)
     names, parents = [None] * len(paths), [-1] * len(paths)
     fsizes, fcounts = [0] * len(paths), [0] * len(paths)
     stack = [(p, k, h) for k, (p, h) in enumerate(paths)]
@@ -245,6 +248,9 @@ def scan_batch(paths, budget=BUDGET, known_total=0, floors=None):
                         cat = hint or catmap.get(x) or catmap.get(x.lower(), "Autres")
                         if size >= floors.get(cat, 0):
                             tops.setdefault(cat, []).append((size, name, idx))
+                    if st.st_size >= DUP_MIN:
+                        dupc.append((st.st_size, name, idx, hint or catmap.get(x) or catmap.get(x.lower(), "Autres"),
+                                     st.st_mtime))
         except OSError:
             errors += 1
         fsizes[idx], fcounts[idx] = fsize, fcount
@@ -261,7 +267,7 @@ def scan_batch(paths, budget=BUDGET, known_total=0, floors=None):
     return {"names": names, "parents": parents, "fsizes": fsizes, "fcounts": fcounts,
             "cands": [c for c in cands if c[0] >= floor], "links": links, "exts": by_hint,
             "hints": hints, "errors": errors, "left": stack,
-            "top": {c: heapq.nlargest(TOP_PER_CAT, items) for c, items in tops.items()}}
+            "top": {c: heapq.nlargest(TOP_PER_CAT, items) for c, items in tops.items()}, "dup": dupc}
 
 
 class Scanner:
@@ -280,6 +286,7 @@ class Scanner:
         self.known = 0  # octets déjà comptés : sert de seuil minimal aux tâches suivantes
         self.top = {}   # catégorie -> tas des TOP_PER_CAT plus gros fichiers (octets, n°, nom, Dir)
         self.cat_floors = {}
+        self.dupc = []  # candidats doublons, voir find_duplicates()
         self.tie = itertools.count()
         self.errors = 0
 
@@ -395,6 +402,7 @@ class Scanner:
                     heapq.heappushpop(heap, entry)
             if len(heap) >= TOP_PER_CAT:
                 self.cat_floors[cat] = heap[0][0]
+        self.dupc += ((s, n, nodes[i], c, m) for s, n, i, c, m in res["dup"] if (i, n) not in dup)
         self.errors += res["errors"]
         return [(p, h, nodes[i]) for p, i, h in res["left"]]
 
@@ -667,6 +675,74 @@ def save_config(changes):
     tmp.replace(CONFIG)  # remplacement atomique : jamais de fichier à moitié écrit
 
 
+# ---------- Doublons ----------
+# Copies normales à l'intérieur d'une appli ou d'un jeu : les supprimer casserait quelque chose
+DUP_SKIP = {"Jeux", "Programmes & système", "Code & dév.", "Caches"}
+EDGE = 64 * 1024  # empreinte rapide : début et fin du fichier
+
+
+def digest(path, size, quick):
+    h = hashlib.blake2b(digest_size=16)
+    with open(path, "rb", buffering=0) as f:
+        if quick and size > 2 * EDGE:
+            h.update(f.read(EDGE))
+            f.seek(-EDGE, os.SEEK_END)
+            h.update(f.read(EDGE))
+        else:
+            buf = bytearray(1 << 20)
+            view = memoryview(buf)
+            while n := f.readinto(buf):
+                h.update(view[:n])
+    return h.hexdigest()
+
+
+def find_duplicates(cands, min_size, skip, progress):
+    """Groupes de fichiers identiques, du plus gaspilleur au moins.
+
+    Trois tamis du moins cher au plus cher : même taille exacte, puis même empreinte
+    rapide (64 Ko au début et à la fin), puis même empreinte du fichier entier."""
+    paths = {}
+
+    def dir_path(d):
+        if id(d) not in paths:
+            paths[id(d)] = d.path()
+        return paths[id(d)]
+
+    by_size = {}
+    for size, name, d, cat, mtime in cands:
+        if size >= min_size and cat not in skip:
+            by_size.setdefault(size, []).append((size, os.path.join(dir_path(d), name), cat, mtime))
+    groups = [g for g in by_size.values() if len(g) > 1]
+
+    def refine(groups, quick, phase, pool):
+        todo = [f for g in groups for f in g]
+        cost = (lambda f: min(f[0], 2 * EDGE)) if quick else (lambda f: f[0])
+        progress.update(phase=phase, done=0, total=sum(map(cost, todo)), files=len(todo))
+
+        def work(f):
+            try:
+                return digest(f[1], f[0], quick)
+            except OSError:
+                return None  # disparu ou illisible depuis l'analyse
+            finally:
+                progress["done"] += cost(f)
+
+        out = {}
+        for f, h in zip(todo, pool.map(work, todo)):
+            if h:
+                out.setdefault((f[0], h), []).append(f)
+        return [g for g in out.values() if len(g) > 1]
+
+    # Des threads conviennent ici : lecture et hashlib relâchent le GIL pendant leur travail
+    with ThreadPoolExecutor(8) as pool:
+        groups = refine(groups, True, "comparaison rapide", pool)
+        small = [g for g in groups if g[0][0] <= 2 * EDGE]  # déjà lus en entier
+        groups = small + refine([g for g in groups if g[0][0] > 2 * EDGE], False, "vérification complète", pool)
+    groups.sort(key=lambda g: g[0][0] * (len(g) - 1), reverse=True)
+    return [{"size": g[0][0], "files": [[p, m, c] for _, p, c, m in sorted(g, key=lambda f: f[3])]}
+            for g in groups]
+
+
 class State:
     def __init__(self, one_fs):
         self.one_fs = one_fs
@@ -675,6 +751,17 @@ class State:
         self.root = None
         self.scanner = None
         self.dirty = False  # une opération a modifié le disque depuis l'analyse
+        self.dup_lock = threading.Lock()
+        self.dup_progress = {}
+
+    def duplicates(self, min_size, skip):
+        with self.dup_lock:
+            t0 = time.time()
+            groups = find_duplicates(self.scanner.dupc, min_size, DUP_SKIP if skip else set(), self.dup_progress)
+            waste = sum(g["size"] * (len(g["files"]) - 1) for g in groups)
+            data = {"groups": groups[:3000], "count": len(groups), "waste": waste,
+                    "seconds": round(time.time() - t0, 1)}
+            return gzip.compress(json.dumps(data, separators=(",", ":")).encode(), compresslevel=5)
 
     def scan(self, path):
         with self.lock:
@@ -730,6 +817,8 @@ def make_handler(state):
                 self._send(200, {"scanned": state.payload is not None, "dirty": state.dirty, "root": state.root})
             elif path == "/api/tree" and state.payload:
                 self._send(200, state.payload, gz=True)
+            elif path == "/api/dupprogress":
+                self._send(200, state.dup_progress)
             elif path == "/api/progress":
                 sc = state.scanner
                 self._send(200, {"files": sc.files if sc else 0, "size": sc.total if sc else 0})
@@ -774,6 +863,11 @@ def make_handler(state):
             elif self.path == "/api/pick":
                 self._send(200, {"path": pick_directory(body.get("title") or "Dossier à analyser",
                                                         body.get("start"))})
+            elif self.path == "/api/duplicates":
+                min_size = body.get("minSize")
+                if not state.scanner or not isinstance(min_size, int) or not DUP_MIN <= min_size <= 1 << 40:
+                    return self._send(400, "analyse ou taille minimale manquante")
+                self._send(200, state.duplicates(min_size, bool(body.get("skip", True))), gz=True)
             elif self.path == "/api/fileop":
                 paths = body.get("paths")
                 if not isinstance(paths, list) or not all(isinstance(p, str) for p in paths):

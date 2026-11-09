@@ -123,8 +123,43 @@ def operations(t):
     verifie(not op("delete", [f"{t}/a"]), "refus : élément déjà supprimé")
 
 
+def doublons(t):
+    print("Doublons")
+    mio = os.urandom(1 << 20)
+    os.makedirs(f"{t}/photos/copie")
+    os.makedirs(f"{t}/projet/node_modules/lib")
+    for p in ("photos/a.jpg", "photos/copie/a.jpg", "photos/a-bis.jpg"):  # 3 copies identiques
+        with open(f"{t}/{p}", "wb") as f:
+            f.write(mio)
+    # même taille, même début et même fin, milieu différent : l'empreinte rapide les confond
+    piege = bytearray(mio)
+    piege[len(piege) // 2] ^= 0xFF
+    with open(f"{t}/photos/presque.jpg", "wb") as f:
+        f.write(piege)
+    os.link(f"{t}/photos/a.jpg", f"{t}/photos/lien-physique.jpg")  # même fichier, pas un doublon
+    for p in ("petit1.txt", "petit2.txt"):  # sous la taille minimale
+        with open(f"{t}/{p}", "w") as f:
+            f.write("x" * 1000)
+    for p in ("projet/node_modules/lib/x.js", "projet/node_modules/x.js"):  # copies « normales » de code
+        with open(f"{t}/{p}", "wb") as f:
+            f.write(mio[:200_000])
+
+    sc = linstat.Scanner(t, procs=2, budget=3)
+    sc.tree(sc.run())
+    groupes = linstat.find_duplicates(sc.dupc, linstat.DUP_MIN, linstat.DUP_SKIP, {})
+    noms = [sorted(os.path.relpath(f[0], t) for f in g["files"]) for g in groupes]
+    verifie(len(groupes) == 1, f"un seul groupe en ignorant le code (trouvé : {noms})")
+    verifie(len(groupes) == 1 and len(groupes[0]["files"]) == 3,
+            "les 3 copies identiques, sans le lien physique ni le fichier presque identique")
+    tout = linstat.find_duplicates(sc.dupc, linstat.DUP_MIN, set(), {})
+    verifie(len(tout) == 2, "les copies de node_modules apparaissent quand on n'ignore rien")
+    verifie(not any("petit" in f[0] for g in tout for f in g["files"]), "les petits fichiers sont ignorés")
+
+
 def main():
     sys.setrecursionlimit(10_000)
+    with tempfile.TemporaryDirectory() as t:
+        doublons(t)
     with tempfile.TemporaryDirectory() as t:
         arborescence(t)
         analyse(t)
